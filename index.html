@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="C Hive Sage 指标顾问 Web 原型工作台">
+  <title>C Hive Sage｜指标顾问</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #211e1a;
+      --muted: #736d64;
+      --canvas: #f5f1e9;
+      --paper: #fffdf9;
+      --sidebar: #171714;
+      --sidebar-soft: #24231f;
+      --line: #ddd4c7;
+      --gold: #c8a66b;
+      --gold-strong: #e0c38f;
+      --gold-wash: #f4ead7;
+      --danger-wash: #fff4e9;
+      --success: #64876d;
+      --shadow: 0 16px 48px rgba(42, 35, 24, 0.09);
+      --sidebar-width: 272px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, select, textarea { font: inherit; }
+
+    button, select { cursor: pointer; }
+
+    button:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 3px solid rgba(200, 166, 107, 0.42);
+      outline-offset: 2px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      height: 100dvh;
+      min-height: 520px;
+    }
+
+    .sidebar {
+      position: relative;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 22px 18px 18px;
+      color: #f7f1e6;
+      background:
+        radial-gradient(circle at 22% 0%, rgba(200, 166, 107, 0.14), transparent 28%),
+        var(--sidebar);
+      border-right: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 2px 4px 24px;
+    }
+
+    .brand-mark,
+    .assistant-avatar {
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border: 1px solid rgba(224, 195, 143, 0.56);
+      color: var(--gold-strong);
+      background: rgba(200, 166, 107, 0.08);
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      font-size: 17px;
+    }
+
+    .brand-name { font-weight: 650; letter-spacing: 0.03em; }
+    .brand-name small { display: block; margin-top: 2px; color: #a9a39a; font-size: 11px; font-weight: 500; }
+
+    .new-chat {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid rgba(224, 195, 143, 0.48);
+      border-radius: 12px;
+      color: #fffaf0;
+      background: rgba(200, 166, 107, 0.12);
+      transition: background 160ms ease, border-color 160ms ease;
+    }
+
+    .new-chat:hover { background: rgba(200, 166, 107, 0.22); border-color: var(--gold); }
+
+    .sidebar-section { margin-top: 24px; }
+    .sidebar-label { display: block; margin: 0 2px 9px; color: #aaa49a; font-size: 11px; letter-spacing: 0.12em; }
+
+    .report-select {
+      width: 100%;
+      min-height: 42px;
+      padding: 0 36px 0 12px;
+      border: 1px solid #45423a;
+      border-radius: 10px;
+      color: #f7f2e9;
+      background: var(--sidebar-soft);
+    }
+
+    .knowledge-card {
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .knowledge-card strong { display: block; color: #e7ded0; font-size: 12px; font-weight: 600; }
+    .knowledge-status { display: flex; align-items: center; gap: 7px; margin-top: 7px; color: #aaa49a; font-size: 11px; }
+    .knowledge-status::before { width: 7px; height: 7px; content: ""; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px rgba(100, 135, 109, 0.13); }
+    .knowledge-status.pending::before { background: var(--gold); box-shadow: 0 0 0 3px rgba(200, 166, 107, 0.12); }
+
+    .recent { min-height: 0; overflow: auto; }
+    .recent-empty, .history-item { padding: 10px 11px; border-radius: 9px; color: #aaa49a; font-size: 12px; line-height: 1.45; }
+    .history-item { overflow: hidden; color: #e3ddd3; background: rgba(255, 255, 255, 0.055); text-overflow: ellipsis; white-space: nowrap; }
+    .simulation-note { display: block; margin-top: 5px; color: #77736d; font-size: 10px; }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 15px 4px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      color: #8f8a82;
+      font-size: 10px;
+      line-height: 1.55;
+    }
+
+    .prototype-chip { display: inline-block; margin-bottom: 6px; padding: 3px 7px; border: 1px solid rgba(200, 166, 107, 0.28); border-radius: 999px; color: var(--gold-strong); }
+
+    .workspace { position: relative; display: grid; grid-template-rows: 68px minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+
+    .topbar {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 0 28px;
+      border-bottom: 1px solid rgba(125, 114, 97, 0.15);
+      background: rgba(245, 241, 233, 0.9);
+      backdrop-filter: blur(14px);
+    }
+
+    .mobile-menu {
+      display: none;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      background: var(--paper);
+      font-size: 20px;
+    }
+
+    .report-heading { min-width: 0; }
+    .report-heading h1 { overflow: hidden; margin: 0; font-size: 15px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+    .report-heading p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .top-status { display: inline-flex; align-items: center; gap: 6px; }
+    .top-status::before { width: 6px; height: 6px; content: ""; border-radius: 50%; background: var(--success); }
+    .top-status.pending::before { background: var(--gold); }
+
+    .conversation {
+      min-height: 0;
+      overflow: auto;
+      scroll-behavior: smooth;
+      scrollbar-color: #cfc5b6 transparent;
+    }
+
+    .conversation-inner { width: min(900px, calc(100% - 48px)); min-height: 100%; margin: 0 auto; padding: 38px 0 40px; }
+
+    .welcome-state { display: grid; place-items: center; min-height: calc(100dvh - 270px); }
+    .welcome-state[hidden] { display: none; }
+    .welcome-panel { width: min(690px, 100%); text-align: center; }
+    .assistant-avatar { width: 48px; height: 48px; margin: 0 auto 18px; border-radius: 15px; background: #24211c; font-size: 21px; box-shadow: var(--shadow); }
+    .welcome-panel h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: clamp(27px, 4vw, 40px); font-weight: 500; letter-spacing: -0.02em; }
+    .welcome-panel > p { max-width: 590px; margin: 14px auto 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+    .quick-title { margin: 33px 0 12px; text-align: left; color: var(--muted); font-size: 12px; }
+    .quick-questions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .quick-question {
+      min-height: 52px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      color: var(--ink);
+      background: rgba(255, 253, 249, 0.75);
+      text-align: left;
+      line-height: 1.45;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+    .quick-question:hover { transform: translateY(-1px); border-color: var(--gold); background: var(--paper); }
+
+    .message-list { display: grid; gap: 28px; }
+    .message { display: flex; gap: 12px; animation: reveal 220ms ease both; }
+    .message.user { justify-content: flex-end; }
+    .message.assistant { align-items: flex-start; }
+    .message .avatar { display: grid; place-items: center; flex: 0 0 30px; height: 30px; margin-top: 2px; border: 1px solid var(--line); border-radius: 9px; color: #8f7140; background: var(--paper); font-size: 13px; }
+    .message.user .bubble { max-width: min(76%, 650px); padding: 11px 15px; border-radius: 16px 16px 4px 16px; color: #fffaf2; background: #28251f; line-height: 1.6; white-space: pre-wrap; }
+    .message.assistant .bubble { width: min(100%, 800px); min-width: 0; color: #39342d; line-height: 1.65; }
+
+    .prototype-badge { display: inline-flex; align-items: center; margin-bottom: 10px; padding: 3px 8px; border: 1px solid #dac49d; border-radius: 999px; color: #896d3f; background: var(--gold-wash); font-size: 10px; }
+    .answer-title { margin-bottom: 5px; color: #82745e; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; }
+    .answer-lead { font-size: 15px; }
+    .answer-section { margin-top: 17px; padding-top: 15px; border-top: 1px solid var(--line); }
+    .answer-section h3 { margin: 0 0 7px; font-size: 12px; }
+    .formula { padding: 10px 12px; border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; background: var(--gold-wash); }
+    .rule-list { margin: 7px 0 0; padding-left: 20px; }
+    .rule-list li + li { margin-top: 5px; }
+    .scope-note { margin-top: 15px; color: var(--muted); font-size: 11px; }
+
+    .ticket, .scope-guide, .report-recommendation {
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px solid #ddc9a5;
+      border-radius: 12px;
+      background: var(--danger-wash);
+    }
+    .ticket strong, .report-recommendation strong { display: block; margin-bottom: 4px; }
+    .ticket-code { margin-top: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+    .scope-guide { background: var(--paper); }
+    .scope-guide ul { margin: 7px 0 0; padding-left: 19px; }
+    .report-recommendation button { margin-top: 10px; padding: 7px 10px; border: 1px solid #c8a66b; border-radius: 8px; color: #614a28; background: #fffaf0; }
+
+    .citation-toggle {
+      margin-top: 13px;
+      padding: 4px 0;
+      border: 0;
+      color: #856b42;
+      background: transparent;
+      font-size: 12px;
+    }
+    .citations { display: none; margin-top: 6px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); font-size: 12px; }
+    .citations.open { display: block; }
+    .citations strong, .citations small { display: block; }
+    .citations small { margin-top: 3px; color: var(--muted); }
+
+    .suggestions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 15px; }
+    .suggestion { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; color: #665a4a; background: transparent; font-size: 11px; }
+    .suggestion:hover { border-color: var(--gold); background: var(--gold-wash); }
+    .feedback { display: flex; align-items: center; gap: 5px; margin-top: 13px; color: var(--muted); font-size: 11px; }
+    .feedback button { width: 30px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; filter: grayscale(1); }
+    .feedback button:hover, .feedback button.selected { border-color: var(--line); background: var(--paper); filter: none; }
+
+    .typing-bubble { display: flex; align-items: center; gap: 5px; min-height: 32px; color: var(--muted); font-size: 12px; }
+    .typing-bubble i { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); animation: pulse 1s infinite ease-in-out; }
+    .typing-bubble i:nth-child(2) { animation-delay: 130ms; }
+    .typing-bubble i:nth-child(3) { animation-delay: 260ms; }
+
+    .composer { position: relative; z-index: 4; padding: 12px 24px 17px; background: linear-gradient(to top, var(--canvas) 76%, rgba(245, 241, 233, 0)); }
+    .composer-inner { width: min(900px, 100%); margin: 0 auto; }
+    .composer-box { display: flex; align-items: flex-end; gap: 10px; padding: 9px 9px 9px 15px; border: 1px solid #d2c8ba; border-radius: 19px; background: var(--paper); box-shadow: 0 10px 32px rgba(47, 39, 29, 0.08); }
+    .composer textarea { flex: 1; max-height: 132px; min-height: 34px; padding: 7px 0 5px; resize: none; overflow-y: auto; border: 0; outline: 0; color: var(--ink); background: transparent; line-height: 1.45; }
+    .composer textarea::placeholder { color: #9b9489; }
+    .send-button { display: grid; place-items: center; flex: 0 0 38px; height: 38px; padding: 0; border: 0; border-radius: 12px; color: #fff9ef; background: #28251f; font-size: 17px; }
+    .send-button:disabled { cursor: not-allowed; opacity: 0.42; }
+    .composer-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 7px; padding: 0 4px; color: #8b847a; font-size: 10px; }
+
+    .sidebar-overlay { position: fixed; z-index: 20; inset: 0; display: none; border: 0; background: rgba(18, 17, 15, 0.46); opacity: 0; transition: opacity 180ms ease; }
+    .toast { position: fixed; z-index: 60; left: 50%; bottom: 25px; max-width: calc(100vw - 32px); padding: 10px 15px; border: 1px solid rgba(224, 195, 143, 0.35); border-radius: 10px; color: #fff9ef; background: #26231e; box-shadow: var(--shadow); font-size: 12px; opacity: 0; transform: translate(-50%, 14px); pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @keyframes pulse { 0%, 70%, 100% { opacity: 0.35; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-2px); } }
+    @keyframes reveal { from { opacity: 0; transform: translateY(5px); } }
+
+    @media (max-width: 767px) {
+      .app-shell { display: block; }
+      .sidebar { position: fixed; inset: 0 auto 0 0; width: min(var(--sidebar-width), calc(100vw - 44px)); transform: translateX(-104%); transition: transform 190ms ease; box-shadow: 14px 0 40px rgba(0, 0, 0, 0.24); }
+      .app-shell.sidebar-open .sidebar { transform: translateX(0); }
+      .sidebar-overlay { display: block; pointer-events: none; }
+      .app-shell.sidebar-open .sidebar-overlay { opacity: 1; pointer-events: auto; }
+      .workspace { height: 100dvh; grid-template-rows: 61px minmax(0, 1fr) auto; }
+      .topbar { padding: 0 15px; }
+      .mobile-menu { display: block; }
+      .conversation-inner { width: min(100% - 28px, 900px); padding-top: 28px; }
+      .welcome-state { min-height: calc(100dvh - 252px); }
+      .welcome-panel h2 { font-size: 29px; }
+      .quick-questions { grid-template-columns: 1fr; }
+      .message-list { gap: 23px; }
+      .message.user .bubble { max-width: 88%; }
+      .composer { padding: 10px 14px 12px; }
+      .composer-meta span:first-child { display: none; }
+      .composer-meta { justify-content: flex-end; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar" aria-label="工作台导航">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">✦</div>
+        <div class="brand-name">C Hive Sage<small>指标顾问</small></div>
+      </div>
+
+      <button class="new-chat" id="newChatBtn" type="button">＋ 新建对话</button>
+
+      <section class="sidebar-section" aria-labelledby="reportSelectLabel">
+        <label class="sidebar-label" id="reportSelectLabel" for="reportSelector">当前报表</label>
+        <select class="report-select" id="reportSelector">
+          <option value="customer_type">Customer Type</option>
+          <option value="product">Product</option>
+          <option value="member_tier">Member Tier</option>
+          <option value="binding">Binding</option>
+          <option value="nps">NPS</option>
+        </select>
+        <div class="knowledge-card" aria-live="polite">
+          <strong id="knowledgeLabel">Customer Type 知识包</strong>
+          <span class="knowledge-status" id="knowledgeStatus">已加载</span>
+        </div>
+      </section>
+
+      <section class="sidebar-section recent" aria-labelledby="recentHeading">
+        <h2 class="sidebar-label" id="recentHeading">最近对话</h2>
+        <div id="recentConversation">
+          <div class="recent-empty">首次提问后显示当前会话标题<span class="simulation-note">模拟效果 · 刷新后不保存</span></div>
+        </div>
+      </section>
+
+      <footer class="sidebar-footer">
+        <span class="prototype-chip">原型演示</span><br>
+        知识来自已审核指标口径；历史会话、导航、问题提交与反馈均为模拟效果。
+      </footer>
+    </aside>
+
+    <button class="sidebar-overlay" id="sidebarOverlay" type="button" aria-label="关闭导航侧栏" tabindex="-1"></button>
+
+    <main class="workspace">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenuBtn" type="button" aria-label="打开导航侧栏" aria-controls="sidebar" aria-expanded="false">☰</button>
+        <div class="report-heading">
+          <h1 id="reportTitle">Customer Type · 指标问答</h1>
+          <p><span class="top-status" id="topKnowledgeStatus">知识包已加载</span></p>
+        </div>
+      </header>
+
+      <section class="conversation" id="conversation" aria-label="对话内容" aria-live="polite">
+        <div class="conversation-inner">
+          <section class="welcome-state" id="welcomeState">
+            <div class="welcome-panel">
+              <div class="assistant-avatar" aria-hidden="true">✦</div>
+              <h2>今天想了解哪个指标？</h2>
+              <p>基于所选报表解释指标定义、计算逻辑与数据规则。无法确认的有效问题只会生成模拟提交，不会猜测业务答案。</p>
+              <div class="quick-title">猜你想问</div>
+              <div class="quick-questions" id="quickQuestions"></div>
+            </div>
+          </section>
+          <div class="message-list" id="messageList"></div>
+        </div>
+      </section>
+
+      <footer class="composer">
+        <div class="composer-inner">
+          <div class="composer-box">
+            <label class="sr-only" for="questionInput">输入指标问题</label>
+            <textarea id="questionInput" rows="1" maxlength="500" placeholder="询问指标定义、计算逻辑或数据口径…" aria-describedby="composerHint"></textarea>
+            <button class="send-button" id="sendBtn" type="button" aria-label="发送问题">↑</button>
+          </div>
+          <div class="composer-meta" id="composerHint">
+            <span>Enter 发送 · Shift+Enter 换行</span>
+            <span><span id="characterCount">0</span>/500 · 回答为原型演示</span>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    'use strict';
+
+    const reportConfigs = {
+      customer_type: {
+        name: 'Customer Type',
+        knowledgePackageName: 'Customer Type 知识包',
+        status: 'ready',
+        owner: 'CRM 数据产品组',
+        questions: ['购买频次是如何计算的？', '客质月报包含大单业绩吗？', '新客是如何定义的？', 'LFL 是如何计算的？', 'MTD、YTD 和 R12 分别是什么？']
+      },
+      product: {
+        name: 'Product',
+        knowledgePackageName: 'Product 知识包',
+        status: 'pending',
+        owner: 'CRM 产品报表组',
+        questions: ['产品新客是如何定义的？', '产品复购如何计算？', '产品 TOP N 如何排名？', '明星产品的范围是什么？']
+      },
+      member_tier: {
+        name: 'Member Tier',
+        knowledgePackageName: 'Member Tier 知识包',
+        status: 'pending',
+        owner: 'CRM 会员运营组',
+        questions: ['会员等级如何定义？', '会员等级何时更新？', '等级与产品如何关联？']
+      },
+      binding: {
+        name: 'Binding',
+        knowledgePackageName: 'Binding 知识包',
+        status: 'pending',
+        owner: 'CRM 数据产品组',
+        questions: ['绑定指标如何定义？', '绑定状态有哪些？', '不同渠道的绑定规则是什么？']
+      },
+      nps: {
+        name: 'NPS',
+        knowledgePackageName: 'NPS 知识包',
+        status: 'pending',
+        owner: '消费者体验团队',
+        questions: ['NPS 是如何定义的？', 'NPS 如何计算？', 'NPS 的样本范围是什么？']
+      }
+    };
+
+    const knowledgeResponses = {
+      purchaseFrequency: {
+        status: 'ok',
+        conclusion: '购买频次表示当前维度下，每位有效购买会员平均产生的净交易次数。',
+        formula: '购买频次 = 订单净交易数 ÷ 去重会员数',
+        rules: ['正向交易计为 +1，退单计为 -1，因此分子是净交易数。', '分母是在当前品牌、渠道、城市、柜台、时期及顾客类型下的去重会员数。', '同比展示为今年购买频次除以去年购买频次后再减 1。'],
+        citation: '客质月报指标口径 · 购买频次', version: '知识包 V2026-09-08', updated: '2026-09-08', owner: 'CRM 数据产品组',
+        suggestions: ['退单为什么会影响购买频次？', '客数如何去重？', '购买频次同比怎么算？']
+      },
+      bigOrder: {
+        status: 'ok',
+        conclusion: '客质月报默认不包含大单业绩。大单、团购、游客或小样等被标记为非标准订单的交易通常会在订单输入阶段排除。',
+        formula: '客质 KPI 仅统计符合有效订单规则的标准交易',
+        rules: ['大多数品牌的大单不会进入客质月报指标。', 'LRL 品牌存在特殊规则：部分被标记为大单的交易在满足标准订单条件时仍可能保留。', '若要分析大单业绩，应使用对应的活动或大单专题报表。'],
+        citation: '客质月报业务规则 · 大单与非标准订单', version: '知识包 V2026-09-08', updated: '2026-09-08', owner: 'CRM 数据产品组',
+        suggestions: ['哪些订单会被排除？', 'LRL 的大单规则有什么不同？']
+      },
+      newCustomer: {
+        status: 'ok',
+        conclusion: '新客按品牌维度判断：会员在所选统计区间内发生该品牌的首次有效购买时，计为品牌新客。',
+        formula: '新客 = 品牌首次有效购买日期落在当前统计区间内的去重会员',
+        rules: ['首次购买必须满足有效订单规则。', '产品新客是不同口径，指会员首单购买了指定产品，属于 Product 报表。', '无法统一识别会员身份时，不应跨身份合并判断首次购买。'],
+        citation: '客质月报指标口径 · 新客', version: '知识包 V2026-09-08', updated: '2026-09-08', owner: 'CRM 数据产品组',
+        suggestions: ['潜转新是什么意思？', '产品新客和品牌新客有什么区别？']
+      },
+      lfl: {
+        status: 'ok',
+        conclusion: 'LFL 用于可比柜台分析，只保留今年和去年同期都处于有效经营状态的重叠区间。',
+        formula: 'LFL 有效区间 = 今年有效经营区间 ∩ 去年同期区间平移一年后的范围',
+        rules: ['LFL 以柜台为基础确定可比区间。', '输出时通常归入 Offline-LFL 渠道。', '柜台开闭店日期变化会影响可比区间和结果。'],
+        citation: '客质月报公共口径 · LFL', version: '知识包 V2026-09-08', updated: '2026-09-08', owner: 'CRM 数据产品组',
+        suggestions: ['为什么 LFL 和 Offline 数据不同？', '新开柜台会进入 LFL 吗？']
+      },
+      timePeriod: {
+        status: 'ok',
+        conclusion: '月报使用 MTD、YTD 和 R12；周报还会使用 WTD。当前选择的周期会决定指标统计的开始与结束日期。',
+        formula: 'MTD：当月累计；YTD：年初至报告日；R12：滚动十二个月；WTD：周累计',
+        rules: ['月报的报告日通常是上月最后一天。', '周报数据截止上周，R12 在周报模式下不提供。', '同比会使用与当前周期对应的去年同期。'],
+        citation: 'CRM 报表公共口径 · 时间周期', version: '知识包 V2026-09-08', updated: '2026-09-08', owner: 'BI 运营组',
+        suggestions: ['周报数据截止到哪一天？', '同比周期如何对应？']
+      },
+      repurchase: {
+        status: 'ok',
+        conclusion: '在当前原型口径中，复购按“会员 + 自然日”归并购买行为：同一会员同一天多笔有效订单合并为 1 次购买。统计期内出现至少 2 个有效购买日，该会员计为复购会员。',
+        formula: '复购率 = 统计期内复购会员数 ÷ 统计期内有购买行为的会员数 × 100%',
+        rules: ['同一会员同一自然日多单合并为 1 次购买行为。', '已全额退款或已取消订单不计入；部分退款订单按最终有效销售状态处理。', '跨渠道订单在会员身份可统一识别时合并计算，否则按渠道内身份计算。'],
+        citation: 'CRM 复购指标口径', version: '版本 3.2', updated: '2026-08-18', owner: 'CRM 数据产品组',
+        suggestions: ['退款订单会计入复购吗？', '跨渠道购买如何合并？', '复购率的统计时间范围是什么？']
+      },
+      refund: {
+        status: 'ok',
+        conclusion: '全额退款或已取消订单不计入有效购买行为；部分退款订单是否保留，取决于订单最终有效销售金额是否大于 0。',
+        formula: '有效订单 = 订单状态有效 且 最终有效销售金额 > 0',
+        rules: ['退款状态使用报表数据刷新时点的最终状态。', '跨月退款可能引起历史月份指标回溯变化。', '异常订单由数据质量规则排除。'],
+        citation: 'CRM 有效订单与退款处理规则', version: '版本 2.6', updated: '2026-08-02', owner: '交易数据治理组',
+        suggestions: ['复购一天多单怎么算？', '为什么历史数据会变化？']
+      },
+      acquisition: {
+        status: 'ok',
+        conclusion: '招新率用于衡量当前统计期新客在有效购买会员中的占比。',
+        formula: '招新率 = 统计期内首次购买会员数 ÷ 统计期内有效购买会员数 × 100%',
+        rules: ['首次购买以可识别会员的全渠道最早有效购买日期判断。', '无法识别会员身份的匿名订单不纳入会员招新计算。', '今年与去年采用当前报表月对应的同比期间。'],
+        citation: 'CRM 招新指标业务定义', version: '版本 4.1', updated: '2026-09-01', owner: 'CRM 数据产品组',
+        suggestions: ['首次购买如何判断？', '匿名订单会计入吗？']
+      },
+      update: {
+        status: 'ok',
+        conclusion: '当前演示口径显示数据更新至 2025-09，最近刷新日期为 2026-05-10。',
+        formula: '页面展示值来自原型中的数据更新标记。',
+        rules: ['这是原型的静态展示信息。', '生产版本应从企业数据目录或报表刷新元数据读取。'],
+        citation: '客质月报发布说明', version: '版本 2025.09', updated: '2026-05-10', owner: 'BI 运营组',
+        suggestions: ['指标口径的更新时间在哪里看？']
+      },
+      unknown: {
+        status: 'no-answer', relevanceStatus: 'in_scope_unanswered',
+        conclusion: '这是与 Customer Type 相关的口径问题，但知识库中暂未找到足够可靠的依据。为了避免错误结论，已生成一条模拟问题提交。',
+        suggestions: ['复购率如何计算？', '招新率的分母是什么？']
+      },
+      crossReport: {
+        status: 'redirect', relevanceStatus: 'cross_report',
+        conclusion: '这个问题属于其他报表。为避免混用口径，建议切换到对应报表后再提问。',
+        targetReport: 'Product', targetKey: 'product',
+        suggestions: ['购买频次是如何计算的？', '新客是如何定义的？']
+      },
+      outOfScope: {
+        status: 'guided', relevanceStatus: 'out_of_scope',
+        conclusion: '这个问题与当前报表的指标口径相关性较低。我可以解释指标定义、计算逻辑和数据规则。',
+        examples: ['复购一天多单怎么算？', '招新率的分母是什么？', '退款订单是否计入客数？']
+      }
+    };
+
+    const appState = {
+      reportKey: 'customer_type',
+      isTyping: false,
+      hasMessages: false,
+      ticketSequence: 18,
+      sidebarOpen: false,
+      lastSidebarTrigger: null,
+      toastTimer: null
+    };
+
+    const appShell = document.getElementById('appShell');
+    const conversation = document.getElementById('conversation');
+    const messageList = document.getElementById('messageList');
+    const welcomeState = document.getElementById('welcomeState');
+    const questionInput = document.getElementById('questionInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const reportSelector = document.getElementById('reportSelector');
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[character]));
+    }
+
+    function currentSnapshot() {
+      const config = reportConfigs[appState.reportKey];
+      return { key: appState.reportKey, name: config.name, knowledgePackageName: config.knowledgePackageName };
+    }
+
+    function renderQuickQuestions() {
+      const config = reportConfigs[appState.reportKey];
+      document.getElementById('quickQuestions').innerHTML = config.questions.map((question) =>
+        `<button class="quick-question" type="button" data-question="${escapeHtml(question)}">${escapeHtml(question)}</button>`
+      ).join('');
+    }
+
+    function handleReportChange(event) {
+      appState.reportKey = event.target.value;
+      const config = reportConfigs[appState.reportKey];
+      const isPending = config.status === 'pending';
+      document.getElementById('knowledgeLabel').textContent = config.knowledgePackageName;
+      const knowledgeStatus = document.getElementById('knowledgeStatus');
+      knowledgeStatus.textContent = isPending ? '知识包待接入' : '已加载';
+      knowledgeStatus.classList.toggle('pending', isPending);
+      document.getElementById('reportTitle').textContent = `${config.name} · 指标问答`;
+      const topStatus = document.getElementById('topKnowledgeStatus');
+      topStatus.textContent = isPending ? '知识包待接入' : '知识包已加载';
+      topStatus.classList.toggle('pending', isPending);
+      renderQuickQuestions();
+      showToast(`已切换至 ${config.name}，历史回答保持原报表快照`);
+      if (window.matchMedia('(max-width: 767px)').matches) closeSidebar();
+    }
+
+    function pickResponse(question, reportKey = appState.reportKey) {
+      const config = reportConfigs[reportKey];
+      if (config.status === 'pending') {
+        return {
+          status: 'no-answer',
+          relevanceStatus: 'in_scope_unanswered',
+          conclusion: `${config.name} 的正式知识包尚未接入，暂时无法提供可靠业务答案。已生成一条模拟问题提交。`,
+          suggestions: config.questions.slice(0, 2)
+        };
+      }
+      if (/天气|股票|电影|音乐|菜谱|旅游|新闻|足球|星座/.test(question)) return knowledgeResponses.outOfScope;
+      if (/产品\s*TOP|TOP\s*N|明星产品|产品新客|竞品|产品流动|产品复购/i.test(question)) {
+        return { ...knowledgeResponses.crossReport, targetReport: 'Product', targetKey: 'product' };
+      }
+      if (/会员等级|会员层级/.test(question)) {
+        return { ...knowledgeResponses.crossReport, targetReport: 'Member Tier', targetKey: 'member_tier' };
+      }
+      if (/绑定指标|绑定状态/.test(question)) {
+        return { ...knowledgeResponses.crossReport, targetReport: 'Binding', targetKey: 'binding' };
+      }
+      if (/NPS|净推荐值/i.test(question)) {
+        return { ...knowledgeResponses.crossReport, targetReport: 'NPS', targetKey: 'nps' };
+      }
+      if (/购买频次|交易次数/.test(question)) return knowledgeResponses.purchaseFrequency;
+      if (/大单|团购|游客单|小样单/.test(question)) return knowledgeResponses.bigOrder;
+      if (/MTD|YTD|R12|WTD|时间周期|月报周期|周报周期/i.test(question)) return knowledgeResponses.timePeriod;
+      if (/LFL|同店|可比柜台/i.test(question)) return knowledgeResponses.lfl;
+      if (/新客定义|新客是|首次有效购买/.test(question)) return knowledgeResponses.newCustomer;
+      if (/退款|取消/.test(question)) return knowledgeResponses.refund;
+      if (/招新|首次购买|新客率/.test(question)) return knowledgeResponses.acquisition;
+      if (/复购|一天多单|多笔订单|跨渠道/.test(question)) return knowledgeResponses.repurchase;
+      if (/更新|刷新|数据到/.test(question)) return knowledgeResponses.update;
+      if (/客数|同比|会员|订单|柜台|渠道|指标|口径|报表|数据/.test(question)) return knowledgeResponses.unknown;
+      return knowledgeResponses.outOfScope;
+    }
+
+    function createTicket() {
+      appState.ticketSequence += 1;
+      return `KQ-20260920-${String(appState.ticketSequence).padStart(4, '0')}`;
+    }
+
+    function renderSuggestions(suggestions = []) {
+      if (!suggestions.length) return '';
+      return `<div class="suggestions" aria-label="推荐追问">${suggestions.map((question) =>
+        `<button class="suggestion" type="button" data-question="${escapeHtml(question)}">${escapeHtml(question)}</button>`
+      ).join('')}</div>`;
+    }
+
+    function renderFeedback() {
+      return '<div class="feedback">这个回答有帮助吗？<button type="button" aria-label="有帮助" data-feedback="up">👍</button><button type="button" aria-label="没帮助" data-feedback="down">👎</button></div>';
+    }
+
+    function citationLabel(response, snapshot) {
+      return String(response.citation).replace(/客质月报/g, snapshot.name);
+    }
+
+    function renderAnswer(response, snapshot = currentSnapshot()) {
+      const node = document.createElement('article');
+      node.className = 'message assistant';
+      node.innerHTML = '<div class="avatar" aria-hidden="true">✦</div>';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+
+      if (response.relevanceStatus === 'in_scope_unanswered') {
+        const ticket = createTicket();
+        bubble.innerHTML = `
+          <span class="prototype-badge">原型演示 · 提交为模拟效果</span>
+          <div class="answer-title">知识待补充</div>
+          <div class="answer-lead">${escapeHtml(response.conclusion)}</div>
+          <div class="ticket"><strong>✓ 已生成模拟问题提交</strong><div class="ticket-code">问题编号 ${ticket}</div></div>
+          <div class="scope-note">提问时所选报表：${escapeHtml(snapshot.name)}</div>
+          ${renderSuggestions(response.suggestions)}`;
+      } else if (response.relevanceStatus === 'cross_report') {
+        bubble.innerHTML = `
+          <span class="prototype-badge">原型演示 · 导航为模拟效果</span>
+          <div class="answer-title">跨报表提示</div>
+          <div class="answer-lead">${escapeHtml(response.conclusion)}</div>
+          <div class="report-recommendation"><strong>↗ 推荐报表：${escapeHtml(response.targetReport)}</strong><span>该主题有独立知识范围。</span><button type="button" data-report-target="${escapeHtml(response.targetKey)}">切换至该报表</button></div>
+          <div class="scope-note">提问时所选报表：${escapeHtml(snapshot.name)}</div>
+          ${renderSuggestions(response.suggestions)}`;
+      } else if (response.relevanceStatus === 'out_of_scope') {
+        bubble.innerHTML = `
+          <span class="prototype-badge">原型演示 · 不创建问题编号</span>
+          <div class="answer-title">问题范围提示</div>
+          <div class="answer-lead">${escapeHtml(response.conclusion)}</div>
+          <div class="scope-guide"><strong>可以这样问我</strong><ul>${response.examples.map((example) => `<li>${escapeHtml(example)}</li>`).join('')}</ul></div>
+          <div class="scope-note">提问时所选报表：${escapeHtml(snapshot.name)}</div>
+          ${renderSuggestions(response.examples)}`;
+      } else {
+        bubble.innerHTML = `
+          <span class="prototype-badge">原型演示 · 请以正式口径文档为准</span>
+          <div class="answer-title">结论</div>
+          <div class="answer-lead">${escapeHtml(response.conclusion)}</div>
+          <section class="answer-section"><h3>计算口径</h3><div class="formula">${escapeHtml(response.formula)}</div></section>
+          <section class="answer-section"><h3>说明</h3><ul class="rule-list">${response.rules.map((rule) => `<li>${escapeHtml(rule)}</li>`).join('')}</ul></section>
+          <div class="scope-note">提问时所选报表：${escapeHtml(snapshot.name)}</div>
+          <button class="citation-toggle" type="button" aria-expanded="false">▸ 查看知识依据</button>
+          <div class="citations"><strong>${escapeHtml(citationLabel(response, snapshot))}</strong><small>${escapeHtml(response.version)} · 更新于 ${escapeHtml(response.updated)}</small><small>负责人：${escapeHtml(response.owner)}</small></div>
+          ${renderSuggestions(response.suggestions)}
+          ${renderFeedback()}`;
+      }
+
+      node.appendChild(bubble);
+      messageList.appendChild(node);
+      scrollToLatest();
+    }
+
+    function toggleCitation(button) {
+      const citation = button.nextElementSibling;
+      const willOpen = !citation.classList.contains('open');
+      citation.classList.toggle('open', willOpen);
+      button.setAttribute('aria-expanded', String(willOpen));
+      button.textContent = willOpen ? '▾ 收起知识依据' : '▸ 查看知识依据';
+    }
+
+    function submitFeedback(button, value) {
+      button.parentElement.querySelectorAll('button').forEach((item) => item.classList.remove('selected'));
+      button.classList.add('selected');
+      showToast(value === 'up' ? '感谢反馈 · 已模拟标记为有帮助' : '反馈已模拟记录 · 不会提交后台');
+    }
+
+    function addUserMessage(question) {
+      const node = document.createElement('article');
+      node.className = 'message user';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = question;
+      node.appendChild(bubble);
+      messageList.appendChild(node);
+    }
+
+    function addTypingIndicator(snapshot) {
+      const node = document.createElement('article');
+      node.className = 'message assistant';
+      node.id = 'typingIndicator';
+      node.innerHTML = `<div class="avatar" aria-hidden="true">✦</div><div class="typing-bubble" role="status"><i></i><i></i><i></i><span>正在核对 ${escapeHtml(snapshot.name)} 的已审核口径</span></div>`;
+      messageList.appendChild(node);
+      scrollToLatest();
+    }
+
+    function setConversationTitle(question) {
+      if (appState.hasMessages) return;
+      const title = question.length > 22 ? `${question.slice(0, 22)}…` : question;
+      document.getElementById('recentConversation').innerHTML = `<div class="history-item" title="${escapeHtml(question)}">${escapeHtml(title)}<span class="simulation-note">当前会话 · 模拟效果</span></div>`;
+    }
+
+    function sendQuestion(question) {
+      const text = String(question || questionInput.value).trim().slice(0, 500);
+      if (!text || appState.isTyping) return;
+
+      const snapshot = currentSnapshot();
+      setConversationTitle(text);
+      appState.hasMessages = true;
+      welcomeState.hidden = true;
+      addUserMessage(text);
+      questionInput.value = '';
+      updateCharacterCount();
+      resizeTextarea();
+      appState.isTyping = true;
+      sendBtn.disabled = true;
+      addTypingIndicator(snapshot);
+
+      window.setTimeout(() => {
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) typingIndicator.remove();
+        renderAnswer(pickResponse(text, snapshot.key), snapshot);
+        appState.isTyping = false;
+        sendBtn.disabled = false;
+        questionInput.focus();
+      }, 650);
+    }
+
+    function startNewChat() {
+      if (appState.isTyping) return;
+      messageList.replaceChildren();
+      appState.hasMessages = false;
+      welcomeState.hidden = false;
+      document.getElementById('recentConversation').innerHTML = '<div class="recent-empty">首次提问后显示当前会话标题<span class="simulation-note">模拟效果 · 刷新后不保存</span></div>';
+      questionInput.value = '';
+      updateCharacterCount();
+      resizeTextarea();
+      closeSidebar();
+      showToast('已新建对话，当前报表选择保持不变');
+      questionInput.focus();
+    }
+
+    function openSidebar() {
+      if (!window.matchMedia('(max-width: 767px)').matches) return;
+      appState.lastSidebarTrigger = document.activeElement;
+      appState.sidebarOpen = true;
+      appShell.classList.add('sidebar-open');
+      document.getElementById('sidebar').removeAttribute('inert');
+      document.getElementById('sidebar').setAttribute('aria-hidden', 'false');
+      document.getElementById('mobileMenuBtn').setAttribute('aria-expanded', 'true');
+      document.getElementById('sidebarOverlay').tabIndex = 0;
+      window.setTimeout(() => document.getElementById('newChatBtn').focus(), 200);
+    }
+
+    function closeSidebar() {
+      if (!appState.sidebarOpen) return;
+      appState.sidebarOpen = false;
+      appShell.classList.remove('sidebar-open');
+      if (window.matchMedia('(max-width: 767px)').matches) {
+        document.getElementById('sidebar').setAttribute('inert', '');
+        document.getElementById('sidebar').setAttribute('aria-hidden', 'true');
+      }
+      document.getElementById('mobileMenuBtn').setAttribute('aria-expanded', 'false');
+      document.getElementById('sidebarOverlay').tabIndex = -1;
+      if (appState.lastSidebarTrigger && typeof appState.lastSidebarTrigger.focus === 'function') {
+        appState.lastSidebarTrigger.focus();
+      }
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      window.clearTimeout(appState.toastTimer);
+      toast.textContent = message;
+      toast.classList.add('show');
+      appState.toastTimer = window.setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    function scrollToLatest() {
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    function updateCharacterCount() {
+      document.getElementById('characterCount').textContent = String(questionInput.value.length);
+    }
+
+    function resizeTextarea() {
+      questionInput.style.height = 'auto';
+      questionInput.style.height = `${Math.min(questionInput.scrollHeight, 132)}px`;
+    }
+
+    function syncSidebarAccessibility() {
+      const sidebar = document.getElementById('sidebar');
+      if (window.matchMedia('(max-width: 767px)').matches && !appState.sidebarOpen) {
+        sidebar.setAttribute('inert', '');
+        sidebar.setAttribute('aria-hidden', 'true');
+      } else {
+        sidebar.removeAttribute('inert');
+        sidebar.setAttribute('aria-hidden', 'false');
+      }
+    }
+
+    reportSelector.addEventListener('change', handleReportChange);
+    document.getElementById('newChatBtn').addEventListener('click', startNewChat);
+    document.getElementById('mobileMenuBtn').addEventListener('click', openSidebar);
+    document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+    sendBtn.addEventListener('click', () => sendQuestion());
+
+    questionInput.addEventListener('input', () => {
+      updateCharacterCount();
+      resizeTextarea();
+    });
+
+    questionInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendQuestion();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && appState.sidebarOpen) closeSidebar();
+    });
+
+    document.addEventListener('click', (event) => {
+      const questionButton = event.target.closest('[data-question]');
+      if (questionButton) sendQuestion(questionButton.dataset.question);
+
+      const citationButton = event.target.closest('.citation-toggle');
+      if (citationButton) toggleCitation(citationButton);
+
+      const feedbackButton = event.target.closest('[data-feedback]');
+      if (feedbackButton) submitFeedback(feedbackButton, feedbackButton.dataset.feedback);
+
+      const reportButton = event.target.closest('[data-report-target]');
+      if (reportButton) {
+        reportSelector.value = reportButton.dataset.reportTarget;
+        handleReportChange({ target: reportSelector });
+        showToast('模拟导航完成：已切换报表，可继续提问');
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (!window.matchMedia('(max-width: 767px)').matches && appState.sidebarOpen) closeSidebar();
+      syncSidebarAccessibility();
+    });
+
+    renderQuickQuestions();
+    updateCharacterCount();
+    syncSidebarAccessibility();
+  </script>
+</body>
+</html>
