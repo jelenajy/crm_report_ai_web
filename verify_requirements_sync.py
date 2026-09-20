@@ -19,7 +19,7 @@ FORBIDDEN_REQUIREMENT_TERMS = (
 REQUIREMENT_CONTRACTS = {
     "FR-RPT-01": {
         "functions": ("handleReportChange", "renderQuickQuestions"),
-        "dom_ids": ("reportSelector", "knowledgeLabel"),
+        "dom_ids": ("reportSelector", "reportTitle", "knowledgeLabel", "knowledgeStatus", "quickQuestions"),
         "behavior": "five reports and ready/pending route updates",
     },
     "FR-RTE-01": {
@@ -51,6 +51,7 @@ REQUIREMENT_CONTRACTS = {
     "FR-A11Y-01": {
         "functions": ("openSidebar", "closeSidebar", "syncSidebarAccessibility"),
         "dom_ids": ("mobileMenuBtn", "sidebarOverlay"),
+        "events": ("document keydown: Escape", "#sidebarOverlay click"),
         "behavior": "mobile sidebar keeps aria-expanded, aria-hidden, and inert synchronized",
     },
 }
@@ -64,6 +65,11 @@ DOM_REQUIREMENT_IDS = {
     element_id: requirement_id
     for requirement_id, contract in REQUIREMENT_CONTRACTS.items()
     for element_id in contract["dom_ids"]
+}
+EVENT_REQUIREMENT_IDS = {
+    event_name: requirement_id
+    for requirement_id, contract in REQUIREMENT_CONTRACTS.items()
+    for event_name in contract.get("events", ())
 }
 
 
@@ -111,6 +117,9 @@ def has_report_config(script: str, key: str, name: str, status: str) -> bool:
         config.group("body"),
         f"name: '{name}'",
         f"status: '{status}'",
+        "knowledgePackageName:",
+        "owner:",
+        "questions:",
     ))
 
 
@@ -119,6 +128,14 @@ def documented_mapping(requirements: str, evidence: str, requirement_id: str) ->
         rf"^\|\s*`?{re.escape(evidence)}`?\s*\|\s*{re.escape(requirement_id)}\s*\|",
         requirements, re.MULTILINE,
     ))
+
+
+def branch_body(source: str, start: str, end: str) -> str:
+    start_at = source.find(start)
+    end_at = source.find(end, start_at + len(start))
+    if start_at == -1 or end_at == -1:
+        raise ValueError(f"cannot isolate response branch: {start}")
+    return source[start_at:end_at]
 
 
 def check_source_contracts(index: str, script: str) -> str | None:
@@ -131,7 +148,15 @@ def check_source_contracts(index: str, script: str) -> str | None:
         return "five report configurations must declare the ready/pending contract"
 
     report_change = function_body(script, "handleReportChange")
-    if not contains_all(report_change, "config.status === 'pending'", "knowledgeLabel').textContent = config.knowledgePackageName", "renderQuickQuestions()", "历史回答保持原报表快照"):
+    if not contains_all(
+        report_change,
+        "config.status === 'pending'",
+        "document.getElementById('reportTitle').textContent",
+        "document.getElementById('knowledgeLabel').textContent",
+        "document.getElementById('knowledgeStatus')",
+        "renderQuickQuestions()",
+        "历史回答保持原报表快照",
+    ):
         return "handleReportChange must update route state while preserving historical snapshots"
 
     routing = function_body(script, "pickResponse")
@@ -144,8 +169,39 @@ def check_source_contracts(index: str, script: str) -> str | None:
         return "pending reports must return the knowledge-missing response shape"
 
     answer = function_body(script, "renderAnswer")
-    if not contains_all(answer, "response.relevanceStatus === 'in_scope_unanswered'", "response.relevanceStatus === 'cross_report'", "response.relevanceStatus === 'out_of_scope'", "else {"):
-        return "renderAnswer must render all four response routes"
+    no_answer = branch_body(
+        answer,
+        "if (response.relevanceStatus === 'in_scope_unanswered') {",
+        "} else if (response.relevanceStatus === 'cross_report') {",
+    )
+    cross_report = branch_body(
+        answer,
+        "} else if (response.relevanceStatus === 'cross_report') {",
+        "} else if (response.relevanceStatus === 'out_of_scope') {",
+    )
+    out_of_scope = branch_body(
+        answer,
+        "} else if (response.relevanceStatus === 'out_of_scope') {",
+        "} else {",
+    )
+    normal_answer = answer[answer.find("} else {", answer.find("out_of_scope")) :]
+    if not contains_all(
+        normal_answer,
+        '<div class="answer-title">结论</div>',
+        "<h3>计算口径</h3>",
+        "<h3>说明</h3>",
+        "提问时所选报表：",
+        "citation-toggle",
+        "renderSuggestions(response.suggestions)",
+        "renderFeedback()",
+    ):
+        return "normal answers must render conclusion, formula, rules, snapshot, citation, follow-ups, and feedback"
+    if not contains_all(no_answer, "提交为模拟效果", "知识待补充", "已生成模拟问题提交", "问题编号 ${ticket}"):
+        return "knowledge-missing answers must render simulated submission confirmation and ticket"
+    if not contains_all(cross_report, "跨报表提示", "report-recommendation", "推荐报表：", "data-report-target"):
+        return "cross-report answers must render a report recommendation card"
+    if not contains_all(out_of_scope, "不创建问题编号", "问题范围提示", "scope-guide", "可以这样问我"):
+        return "out-of-scope answers must render the scope guide without a ticket"
 
     snapshot = function_body(script, "currentSnapshot")
     send = function_body(script, "sendQuestion")
@@ -175,6 +231,14 @@ def check_source_contracts(index: str, script: str) -> str | None:
         return "closeSidebar must hide and inert the mobile sidebar"
     if not contains_all(sync_sidebar, "max-width: 767px", "setAttribute('inert', '')", "removeAttribute('inert')"):
         return "syncSidebarAccessibility must keep narrow-screen sidebar state synchronized"
+    if not contains_all(open_sidebar, "appState.lastSidebarTrigger = document.activeElement", "newChatBtn').focus()"):
+        return "openSidebar must move focus into the mobile sidebar"
+    if not contains_all(close_sidebar, "appState.lastSidebarTrigger.focus()", "sidebarOverlay').tabIndex = -1"):
+        return "closeSidebar must restore focus and remove the overlay from tab order"
+    if not re.search(r"document\.getElementById\('sidebarOverlay'\)\.addEventListener\('click',\s*closeSidebar\)", script):
+        return "sidebar overlay must be bound to closeSidebar"
+    if not re.search(r"document\.addEventListener\('keydown',\s*\(event\)\s*=>\s*\{\s*if \(event\.key === 'Escape' && appState\.sidebarOpen\) closeSidebar\(\);", script):
+        return "Escape keydown must close an open mobile sidebar"
 
     feedback = function_body(script, "submitFeedback")
     title = function_body(script, "setConversationTitle")
@@ -228,6 +292,9 @@ def main() -> int:
             return fail(f"index.html missing mapped DOM id: {element_id}")
         if not documented_mapping(requirements, f"#{element_id}", requirement_id):
             return fail(f"requirements mapping missing #{element_id} ↔ {requirement_id}")
+    for event_name, requirement_id in EVENT_REQUIREMENT_IDS.items():
+        if not documented_mapping(requirements, event_name, requirement_id):
+            return fail(f"requirements mapping missing {event_name} ↔ {requirement_id}")
     print("PASS: Web requirements and prototype behavior are structurally synchronized")
     return 0
 
