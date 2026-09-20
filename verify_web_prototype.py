@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Contract checks for the C Hive Sage Web prototype.
-
-The page is intentionally not part of Task 2.  Running this checker before the
-page is implemented must fail, providing the red test for the next task.
-"""
+"""Dependency-free structural checks for the C Hive Sage Web prototype."""
 
 from __future__ import annotations
 
@@ -34,14 +30,19 @@ REQUIRED_FUNCTIONS = (
     "handleReportChange",
     "renderQuickQuestions",
     "sendQuestion",
+    "setInteractionBusy",
     "pickResponse",
+    "findCrossReportRoute",
     "renderAnswer",
+    "renderError",
+    "renderFeedback",
     "citationLabel",
     "toggleCitation",
     "submitFeedback",
     "startNewChat",
     "openSidebar",
     "closeSidebar",
+    "syncSidebarOverlay",
     "showToast",
 )
 
@@ -93,6 +94,35 @@ def main() -> int:
         source,
     ):
         return fail("citation labels must include the question-time report snapshot")
+
+    if source.count("routePatterns:") < 4 or "findCrossReportRoute(question, reportKey)" not in source:
+        return fail("cross-report routing must be driven by every non-default report configuration")
+
+    if not re.search(
+        r"event\.isComposing\s*\|\|\s*event\.keyCode\s*===\s*229.*?"
+        r"event\.key\s*===\s*'Enter'.*?!event\.shiftKey.*?!isComposing",
+        source,
+        re.DOTALL,
+    ):
+        return fail("Enter handling must protect active and legacy IME composition")
+
+    if ".composer-box:focus-within" not in source or re.search(
+        r"\.composer\s+textarea\s*\{[^}]*\boutline\s*:\s*0",
+        source,
+        re.DOTALL,
+    ):
+        return fail("the primary composer must retain a visible keyboard focus treatment")
+
+    if not all(token in source for token in (
+        "catch (error)", "finally {", "renderError(error, snapshot)", "setInteractionBusy(false)",
+    )):
+        return fail("answer failures must render an error and restore interaction from finally")
+
+    if not all(token in source for token in (
+        'aria-controls="${citationId}"', 'id="${citationId}"', 'aria-pressed="false"',
+        "setAttribute('aria-pressed'", "overlay.hidden", "aria-hidden=\"true\"",
+    )):
+        return fail("citation, feedback, and overlay dynamic accessibility states are incomplete")
 
     print("PASS: web prototype interaction contract exists")
     return 0

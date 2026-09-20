@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""Regression contracts for the V1.0 final-review findings.
+
+These checks deliberately complement, rather than replace, the browser runner in
+``verify_web_runtime.html``.  They keep security/documentation guarantees and
+critical implementation hooks reviewable from a dependency-free CLI command.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent
+INDEX = ROOT / "index.html"
+REQUIREMENTS = ROOT / "web版report_ai需求文档.md"
+README = ROOT / "README.md"
+RUNTIME_RUNNER = ROOT / "verify_web_runtime.html"
+RUNTIME_DRIVER = ROOT / "verify_web_runtime.py"
+
+
+def function_body(source: str, name: str) -> str:
+    declaration = re.search(rf"\bfunction\s+{re.escape(name)}\b", source)
+    if not declaration:
+        return ""
+    opening_brace = source.find("{", declaration.end())
+    depth = 0
+    for position in range(opening_brace, len(source)):
+        if source[position] == "{":
+            depth += 1
+        elif source[position] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[declaration.start() : position + 1]
+    return ""
+
+
+def css_rule(source: str, selector: str) -> str:
+    match = re.search(rf"{re.escape(selector)}\s*\{{(?P<body>[^}}]+)\}}", source)
+    return match.group("body") if match else ""
+
+
+def color_value(rule: str) -> str | None:
+    match = re.search(r"\bcolor\s*:\s*(#[0-9a-fA-F]{6})\b", rule)
+    return match.group(1) if match else None
+
+
+def relative_luminance(hex_color: str) -> float:
+    channels = [int(hex_color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
+    linear = [value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4 for value in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def contrast_ratio(first: str, second: str) -> float:
+    lighter, darker = sorted((relative_luminance(first), relative_luminance(second)), reverse=True)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def main() -> int:
+    files = (INDEX, REQUIREMENTS, README, RUNTIME_RUNNER, RUNTIME_DRIVER)
+    missing = [path.name for path in files if not path.exists()]
+    if missing:
+        print("FAIL: missing regression inputs: " + ", ".join(missing))
+        return 1
+
+    index = INDEX.read_text(encoding="utf-8")
+    requirements = REQUIREMENTS.read_text(encoding="utf-8")
+    readme = README.read_text(encoding="utf-8")
+    runtime = RUNTIME_RUNNER.read_text(encoding="utf-8")
+    runtime_driver = RUNTIME_DRIVER.read_text(encoding="utf-8")
+    failures: list[str] = []
+
+    def check(condition: bool, message: str) -> None:
+        if not condition:
+            failures.append(message)
+
+    routing = function_body(index, "findCrossReportRoute")
+    pick_response = function_body(index, "pickResponse")
+    check(index.count("routePatterns:") >= 4, "non-default reports need configured route patterns")
+    check(
+        all(token in routing for token in ("config.questions.includes(question)", "config.routePatterns.some", "targetKey")),
+        "cross-report routing must be driven by each report's questions and patterns",
+    )
+    check("findCrossReportRoute(question, reportKey)" in pick_response, "pickResponse must use the configured cross-report router")
+
+    keyboard_handler = re.search(
+        r"questionInput\.addEventListener\('keydown',\s*\(event\)\s*=>\s*\{(?P<body>.*?)\n\s*\}\);",
+        index,
+        re.DOTALL,
+    )
+    keyboard_body = keyboard_handler.group("body") if keyboard_handler else ""
+    check("event.isComposing" in keyboard_body, "Enter handler must ignore active IME composition")
+    check("event.keyCode === 229" in keyboard_body, "Enter handler must include the legacy IME 229 guard")
+
+    focus_rule = css_rule(index, ".composer-box:focus-within")
+    textarea_rule = css_rule(index, ".composer textarea")
+    check("outline:" in focus_rule and "outline: 0" not in focus_rule, "composer needs a visible focus-within outline")
+    check("outline: 0" not in textarea_rule, "textarea rule must not erase its visible focus")
+
+    send_question = function_body(index, "sendQuestion")
+    render_error = function_body(index, "renderError")
+    busy_state = function_body(index, "setInteractionBusy")
+    check(
+        all(token in send_question for token in ("try {", "catch (error)", "finally {", "renderError(error, snapshot)", "setInteractionBusy(false)")),
+        "sendQuestion must render an error and restore controls from finally",
+    )
+    has_alert_role = 'role="alert"' in render_error or "setAttribute('role', 'alert')" in render_error
+    check(has_alert_role and "暂时无法" in render_error, "renderError must create an accessible visible error message")
+    check("newChatBtn.disabled = isBusy" in busy_state, "new chat must be explicitly disabled while an answer is loading")
+
+    answer = function_body(index, "renderAnswer")
+    feedback = function_body(index, "renderFeedback")
+    submit_feedback = function_body(index, "submitFeedback")
+    check(
+        all(token in answer for token in ("citationId", 'aria-controls="${citationId}"', 'id="${citationId}"')),
+        "every citation toggle must control a unique citation region id",
+    )
+    check('aria-pressed="false"' in feedback, "feedback buttons must declare their initial pressed state")
+    check("setAttribute('aria-pressed'" in submit_feedback, "feedback selection must update aria-pressed")
+    check(
+        bool(re.search(r'id="sidebarOverlay"[^>]+aria-hidden="true"[^>]+hidden', index)),
+        "the closed sidebar overlay must start hidden and outside the accessibility tree",
+    )
+    sync_overlay = function_body(index, "syncSidebarOverlay")
+    check(
+        all(token in sync_overlay for token in ("overlay.hidden", "aria-hidden", "tabIndex")),
+        "sidebar overlay visibility, ARIA state, and tab order must update together",
+    )
+
+    simulation_color = color_value(css_rule(index, ".simulation-note"))
+    composer_color = color_value(css_rule(index, ".composer-meta"))
+    check(
+        bool(simulation_color) and contrast_ratio(simulation_color or "#000000", "#171714") >= 4.5,
+        "10px sidebar simulation text must reach 4.5:1 contrast",
+    )
+    check(
+        bool(composer_color) and contrast_ratio(composer_color or "#000000", "#f5f1e9") >= 4.5,
+        "10px composer metadata must reach 4.5:1 contrast",
+    )
+
+    check("### FR-ERR-01" in requirements, "requirements need a structured error/recovery contract")
+    check(
+        all(marker in requirements for marker in ("| `renderError` | FR-ERR-01 |", "| `setInteractionBusy` | FR-ERR-01 |")),
+        "requirements mapping must cover error rendering and state restoration",
+    )
+
+    check('PUBLIC_DIR="$(mktemp -d)"' in readme, "README must create a clean temporary public directory")
+    check('cp index.html "$PUBLIC_DIR/"' in readme, "README must copy only the public entry point")
+    check("--bind 127.0.0.1" in readme and '--directory "$PUBLIC_DIR"' in readme, "README server must bind loopback and serve the clean directory")
+    check(not re.search(r"(?m)^python3 -m http\.server 8765\s*$", readme), "README must not recommend the unsafe repository-root server command")
+    check("后续任务创建" not in readme, "README must not retain release placeholders")
+
+    runtime_cases = (
+        "configured cross-report questions",
+        "IME composition Enter",
+        "visible composer focus",
+        "fault recovery finally",
+        "citation and feedback ARIA",
+        "overlay accessibility state",
+    )
+    check(all(case in runtime for case in runtime_cases), "browser runner must cover every dynamic final-review regression")
+    check(
+        all(marker in runtime_driver for marker in ('("127.0.0.1", 0)', "TemporaryDirectory", '"/.git/config"', "!= 404")),
+        "browser driver must serve only a temporary loopback public root and probe repository paths",
+    )
+
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}")
+        return 1
+    print("PASS: final-review regressions are covered by static and browser contracts")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -118,7 +118,8 @@
       transition: background 160ms ease, border-color 160ms ease;
     }
 
-    .new-chat:hover { background: rgba(200, 166, 107, 0.22); border-color: var(--gold); }
+    .new-chat:not(:disabled):hover { background: rgba(200, 166, 107, 0.22); border-color: var(--gold); }
+    .new-chat:disabled { cursor: not-allowed; opacity: 0.5; }
 
     .sidebar-section { margin-top: 24px; }
     .sidebar-label { display: block; margin: 0 2px 9px; color: #aaa49a; font-size: 11px; letter-spacing: 0.12em; }
@@ -149,7 +150,7 @@
     .recent { min-height: 0; overflow: auto; }
     .recent-empty, .history-item { padding: 10px 11px; border-radius: 9px; color: #aaa49a; font-size: 12px; line-height: 1.45; }
     .history-item { overflow: hidden; color: #e3ddd3; background: rgba(255, 255, 255, 0.055); text-overflow: ellipsis; white-space: nowrap; }
-    .simulation-note { display: block; margin-top: 5px; color: #77736d; font-size: 10px; }
+    .simulation-note { display: block; margin-top: 5px; color: #aaa49a; font-size: 10px; }
 
     .sidebar-footer {
       margin-top: auto;
@@ -255,6 +256,7 @@
     .scope-guide { background: var(--paper); }
     .scope-guide ul { margin: 7px 0 0; padding-left: 19px; }
     .report-recommendation button { margin-top: 10px; padding: 7px 10px; border: 1px solid #c8a66b; border-radius: 8px; color: #614a28; background: #fffaf0; }
+    .error-message { padding: 14px; border: 1px solid #d9b98e; border-radius: 12px; background: var(--danger-wash); }
 
     .citation-toggle {
       margin-top: 13px;
@@ -284,13 +286,15 @@
     .composer { position: relative; z-index: 4; padding: 12px 24px 17px; background: linear-gradient(to top, var(--canvas) 76%, rgba(245, 241, 233, 0)); }
     .composer-inner { width: min(900px, 100%); margin: 0 auto; }
     .composer-box { display: flex; align-items: flex-end; gap: 10px; padding: 9px 9px 9px 15px; border: 1px solid #d2c8ba; border-radius: 19px; background: var(--paper); box-shadow: 0 10px 32px rgba(47, 39, 29, 0.08); }
-    .composer textarea { flex: 1; max-height: 132px; min-height: 34px; padding: 7px 0 5px; resize: none; overflow-y: auto; border: 0; outline: 0; color: var(--ink); background: transparent; line-height: 1.45; }
+    .composer-box:focus-within { border-color: #9a7740; outline: 3px solid rgba(154, 119, 64, 0.35); outline-offset: 2px; }
+    .composer textarea { flex: 1; max-height: 132px; min-height: 34px; padding: 7px 0 5px; resize: none; overflow-y: auto; border: 0; color: var(--ink); background: transparent; line-height: 1.45; }
     .composer textarea::placeholder { color: #9b9489; }
     .send-button { display: grid; place-items: center; flex: 0 0 38px; height: 38px; padding: 0; border: 0; border-radius: 12px; color: #fff9ef; background: #28251f; font-size: 17px; }
     .send-button:disabled { cursor: not-allowed; opacity: 0.42; }
-    .composer-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 7px; padding: 0 4px; color: #8b847a; font-size: 10px; }
+    .composer-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 7px; padding: 0 4px; color: #736d64; font-size: 10px; }
 
     .sidebar-overlay { position: fixed; z-index: 20; inset: 0; display: none; border: 0; background: rgba(18, 17, 15, 0.46); opacity: 0; transition: opacity 180ms ease; }
+    .sidebar-overlay[hidden] { display: none; }
     .toast { position: fixed; z-index: 60; left: 50%; bottom: 25px; max-width: calc(100vw - 32px); padding: 10px 15px; border: 1px solid rgba(224, 195, 143, 0.35); border-radius: 10px; color: #fff9ef; background: #26231e; box-shadow: var(--shadow); font-size: 12px; opacity: 0; transform: translate(-50%, 14px); pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
     .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
@@ -360,7 +364,7 @@
       </footer>
     </aside>
 
-    <button class="sidebar-overlay" id="sidebarOverlay" type="button" aria-label="关闭导航侧栏" tabindex="-1"></button>
+    <button class="sidebar-overlay" id="sidebarOverlay" type="button" aria-label="关闭导航侧栏" tabindex="-1" aria-hidden="true" hidden></button>
 
     <main class="workspace">
       <header class="topbar">
@@ -413,6 +417,7 @@
         knowledgePackageName: 'Customer Type 知识包',
         status: 'ready',
         owner: 'CRM 数据产品组',
+        routePatterns: [],
         questions: ['购买频次是如何计算的？', '客质月报包含大单业绩吗？', '新客是如何定义的？', 'LFL 是如何计算的？', 'MTD、YTD 和 R12 分别是什么？']
       },
       product: {
@@ -420,6 +425,7 @@
         knowledgePackageName: 'Product 知识包',
         status: 'pending',
         owner: 'CRM 产品报表组',
+        routePatterns: [/产品\s*TOP|TOP\s*N|明星产品|产品新客|竞品|产品流动|产品复购/i],
         questions: ['产品新客是如何定义的？', '产品复购如何计算？', '产品 TOP N 如何排名？', '明星产品的范围是什么？']
       },
       member_tier: {
@@ -427,6 +433,7 @@
         knowledgePackageName: 'Member Tier 知识包',
         status: 'pending',
         owner: 'CRM 会员运营组',
+        routePatterns: [/会员等级|会员层级|等级.*(?:定义|更新|产品)/],
         questions: ['会员等级如何定义？', '会员等级何时更新？', '等级与产品如何关联？']
       },
       binding: {
@@ -434,6 +441,7 @@
         knowledgePackageName: 'Binding 知识包',
         status: 'pending',
         owner: 'CRM 数据产品组',
+        routePatterns: [/绑定指标|绑定状态|绑定规则|渠道.*绑定|绑定.*渠道/],
         questions: ['绑定指标如何定义？', '绑定状态有哪些？', '不同渠道的绑定规则是什么？']
       },
       nps: {
@@ -441,6 +449,7 @@
         knowledgePackageName: 'NPS 知识包',
         status: 'pending',
         owner: '消费者体验团队',
+        routePatterns: [/NPS|净推荐值|推荐者|贬损者/i],
         questions: ['NPS 是如何定义的？', 'NPS 如何计算？', 'NPS 的样本范围是什么？']
       }
     };
@@ -541,8 +550,10 @@
       isTyping: false,
       hasMessages: false,
       ticketSequence: 18,
+      answerSequence: 0,
       sidebarOpen: false,
       lastSidebarTrigger: null,
+      sidebarFocusTimer: null,
       toastTimer: null
     };
 
@@ -552,6 +563,7 @@
     const welcomeState = document.getElementById('welcomeState');
     const questionInput = document.getElementById('questionInput');
     const sendBtn = document.getElementById('sendBtn');
+    const newChatBtn = document.getElementById('newChatBtn');
     const reportSelector = document.getElementById('reportSelector');
 
     function escapeHtml(value) {
@@ -589,6 +601,20 @@
       if (window.matchMedia('(max-width: 767px)').matches) closeSidebar();
     }
 
+    function findCrossReportRoute(question, reportKey) {
+      const targetReports = Object.entries(reportConfigs).filter(([targetKey, config]) =>
+        targetKey !== reportKey && config.routePatterns.length
+      );
+      const configuredTarget = targetReports.find(([, config]) => config.questions.includes(question));
+      const patternTarget = targetReports.find(([, config]) =>
+        config.routePatterns.some((pattern) => pattern.test(question))
+      );
+      const target = configuredTarget || patternTarget;
+      if (!target) return null;
+      const [targetKey, config] = target;
+      return { ...knowledgeResponses.crossReport, targetReport: config.name, targetKey };
+    }
+
     function pickResponse(question, reportKey = appState.reportKey) {
       const config = reportConfigs[reportKey];
       if (config.status === 'pending') {
@@ -600,18 +626,8 @@
         };
       }
       if (/天气|股票|电影|音乐|菜谱|旅游|新闻|足球|星座/.test(question)) return knowledgeResponses.outOfScope;
-      if (/产品\s*TOP|TOP\s*N|明星产品|产品新客|竞品|产品流动|产品复购/i.test(question)) {
-        return { ...knowledgeResponses.crossReport, targetReport: 'Product', targetKey: 'product' };
-      }
-      if (/会员等级|会员层级/.test(question)) {
-        return { ...knowledgeResponses.crossReport, targetReport: 'Member Tier', targetKey: 'member_tier' };
-      }
-      if (/绑定指标|绑定状态/.test(question)) {
-        return { ...knowledgeResponses.crossReport, targetReport: 'Binding', targetKey: 'binding' };
-      }
-      if (/NPS|净推荐值/i.test(question)) {
-        return { ...knowledgeResponses.crossReport, targetReport: 'NPS', targetKey: 'nps' };
-      }
+      const crossReportRoute = findCrossReportRoute(question, reportKey);
+      if (crossReportRoute) return crossReportRoute;
       if (/购买频次|交易次数/.test(question)) return knowledgeResponses.purchaseFrequency;
       if (/大单|团购|游客单|小样单/.test(question)) return knowledgeResponses.bigOrder;
       if (/MTD|YTD|R12|WTD|时间周期|月报周期|周报周期/i.test(question)) return knowledgeResponses.timePeriod;
@@ -638,7 +654,7 @@
     }
 
     function renderFeedback() {
-      return '<div class="feedback">这个回答有帮助吗？<button type="button" aria-label="有帮助" data-feedback="up">👍</button><button type="button" aria-label="没帮助" data-feedback="down">👎</button></div>';
+      return '<div class="feedback" role="group" aria-label="回答反馈">这个回答有帮助吗？<button type="button" aria-label="有帮助" aria-pressed="false" data-feedback="up">👍</button><button type="button" aria-label="没帮助" aria-pressed="false" data-feedback="down">👎</button></div>';
     }
 
     function citationLabel(response, snapshot) {
@@ -678,6 +694,8 @@
           <div class="scope-note">提问时所选报表：${escapeHtml(snapshot.name)}</div>
           ${renderSuggestions(response.examples)}`;
       } else {
+        appState.answerSequence += 1;
+        const citationId = `citation-${appState.answerSequence}`;
         bubble.innerHTML = `
           <span class="prototype-badge">原型演示 · 请以正式口径文档为准</span>
           <div class="answer-title">结论</div>
@@ -685,8 +703,8 @@
           <section class="answer-section"><h3>计算口径</h3><div class="formula">${escapeHtml(response.formula)}</div></section>
           <section class="answer-section"><h3>说明</h3><ul class="rule-list">${response.rules.map((rule) => `<li>${escapeHtml(rule)}</li>`).join('')}</ul></section>
           <div class="scope-note">提问时所选报表：${escapeHtml(snapshot.name)}</div>
-          <button class="citation-toggle" type="button" aria-expanded="false">▸ 查看知识依据</button>
-          <div class="citations"><strong>${escapeHtml(citationLabel(response, snapshot))}</strong><small>${escapeHtml(response.version)} · 更新于 ${escapeHtml(response.updated)}</small><small>负责人：${escapeHtml(response.owner)}</small></div>
+          <button class="citation-toggle" type="button" aria-expanded="false" aria-controls="${citationId}">▸ 查看知识依据</button>
+          <div class="citations" id="${citationId}" hidden><strong>${escapeHtml(citationLabel(response, snapshot))}</strong><small>${escapeHtml(response.version)} · 更新于 ${escapeHtml(response.updated)}</small><small>负责人：${escapeHtml(response.owner)}</small></div>
           ${renderSuggestions(response.suggestions)}
           ${renderFeedback()}`;
       }
@@ -697,16 +715,21 @@
     }
 
     function toggleCitation(button) {
-      const citation = button.nextElementSibling;
-      const willOpen = !citation.classList.contains('open');
+      const citation = document.getElementById(button.getAttribute('aria-controls'));
+      if (!citation) return;
+      const willOpen = citation.hidden;
       citation.classList.toggle('open', willOpen);
+      citation.hidden = !willOpen;
       button.setAttribute('aria-expanded', String(willOpen));
       button.textContent = willOpen ? '▾ 收起知识依据' : '▸ 查看知识依据';
     }
 
     function submitFeedback(button, value) {
-      button.parentElement.querySelectorAll('button').forEach((item) => item.classList.remove('selected'));
-      button.classList.add('selected');
+      button.parentElement.querySelectorAll('button').forEach((item) => {
+        const isSelected = item === button;
+        item.classList.toggle('selected', isSelected);
+        item.setAttribute('aria-pressed', String(isSelected));
+      });
       showToast(value === 'up' ? '感谢反馈 · 已模拟标记为有帮助' : '反馈已模拟记录 · 不会提交后台');
     }
 
@@ -729,6 +752,30 @@
       scrollToLatest();
     }
 
+    function renderError(error, snapshot) {
+      const node = document.createElement('article');
+      node.className = 'message assistant';
+      node.innerHTML = '<div class="avatar" aria-hidden="true">✦</div>';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble error-message';
+      bubble.setAttribute('role', 'alert');
+      bubble.innerHTML = `
+        <div class="answer-title">暂时无法生成回答</div>
+        <div class="answer-lead">这次处理没有完成。输入和新建对话已经恢复，请稍后重试。</div>
+        <div class="scope-note">提问时所选报表：${escapeHtml(snapshot.name)}</div>`;
+      node.appendChild(bubble);
+      messageList.appendChild(node);
+      scrollToLatest();
+      void error;
+    }
+
+    function setInteractionBusy(isBusy) {
+      appState.isTyping = isBusy;
+      sendBtn.disabled = isBusy;
+      newChatBtn.disabled = isBusy;
+      newChatBtn.title = isBusy ? '正在生成回答，请稍候' : '';
+    }
+
     function setConversationTitle(question) {
       if (appState.hasMessages) return;
       const title = question.length > 22 ? `${question.slice(0, 22)}…` : question;
@@ -747,17 +794,20 @@
       questionInput.value = '';
       updateCharacterCount();
       resizeTextarea();
-      appState.isTyping = true;
-      sendBtn.disabled = true;
+      setInteractionBusy(true);
       addTypingIndicator(snapshot);
 
       window.setTimeout(() => {
-        const typingIndicator = document.getElementById('typingIndicator');
-        if (typingIndicator) typingIndicator.remove();
-        renderAnswer(pickResponse(text, snapshot.key), snapshot);
-        appState.isTyping = false;
-        sendBtn.disabled = false;
-        questionInput.focus();
+        try {
+          renderAnswer(pickResponse(text, snapshot.key), snapshot);
+        } catch (error) {
+          renderError(error, snapshot);
+        } finally {
+          const typingIndicator = document.getElementById('typingIndicator');
+          if (typingIndicator) typingIndicator.remove();
+          setInteractionBusy(false);
+          questionInput.focus();
+        }
       }, 650);
     }
 
@@ -783,20 +833,26 @@
       document.getElementById('sidebar').removeAttribute('inert');
       document.getElementById('sidebar').setAttribute('aria-hidden', 'false');
       document.getElementById('mobileMenuBtn').setAttribute('aria-expanded', 'true');
-      document.getElementById('sidebarOverlay').tabIndex = 0;
-      window.setTimeout(() => document.getElementById('newChatBtn').focus(), 200);
+      syncSidebarOverlay();
+      window.clearTimeout(appState.sidebarFocusTimer);
+      appState.sidebarFocusTimer = window.setTimeout(() => {
+        if (appState.sidebarOpen && window.matchMedia('(max-width: 767px)').matches) newChatBtn.focus();
+        appState.sidebarFocusTimer = null;
+      }, 200);
     }
 
     function closeSidebar() {
       if (!appState.sidebarOpen) return;
       appState.sidebarOpen = false;
+      window.clearTimeout(appState.sidebarFocusTimer);
+      appState.sidebarFocusTimer = null;
       appShell.classList.remove('sidebar-open');
       if (window.matchMedia('(max-width: 767px)').matches) {
         document.getElementById('sidebar').setAttribute('inert', '');
         document.getElementById('sidebar').setAttribute('aria-hidden', 'true');
       }
       document.getElementById('mobileMenuBtn').setAttribute('aria-expanded', 'false');
-      document.getElementById('sidebarOverlay').tabIndex = -1;
+      syncSidebarOverlay();
       if (appState.lastSidebarTrigger && typeof appState.lastSidebarTrigger.focus === 'function') {
         appState.lastSidebarTrigger.focus();
       }
@@ -823,6 +879,14 @@
       questionInput.style.height = `${Math.min(questionInput.scrollHeight, 132)}px`;
     }
 
+    function syncSidebarOverlay() {
+      const overlay = document.getElementById('sidebarOverlay');
+      const isOpenOnMobile = appState.sidebarOpen && window.matchMedia('(max-width: 767px)').matches;
+      overlay.hidden = !isOpenOnMobile;
+      overlay.setAttribute('aria-hidden', String(!isOpenOnMobile));
+      overlay.tabIndex = isOpenOnMobile ? 0 : -1;
+    }
+
     function syncSidebarAccessibility() {
       const sidebar = document.getElementById('sidebar');
       if (window.matchMedia('(max-width: 767px)').matches && !appState.sidebarOpen) {
@@ -832,6 +896,7 @@
         sidebar.removeAttribute('inert');
         sidebar.setAttribute('aria-hidden', 'false');
       }
+      syncSidebarOverlay();
     }
 
     reportSelector.addEventListener('change', handleReportChange);
@@ -846,7 +911,8 @@
     });
 
     questionInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
+      const isComposing = event.isComposing || event.keyCode === 229;
+      if (event.key === 'Enter' && !event.shiftKey && !isComposing) {
         event.preventDefault();
         sendQuestion();
       }

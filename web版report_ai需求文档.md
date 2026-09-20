@@ -23,11 +23,13 @@
 
 切换报表时，页面必须立即更新报表标题、知识包名称、知识状态和快捷问题；已经生成的回答保持其提问时的报表快照，不能被后续切换改写。五张报表中的每一张均在页面配置中包含名称、知识包名称、状态、负责人和快捷问题；其中 Customer Type 为 ready，其余四张为 pending。
 
-`Customer Type` 知识包处于已加载状态，可演示购买频次、大单、新客、LFL、MTD/YTD/R12/WTD、复购、退款、招新和数据更新时间等已审核口径。`Product`、`Member Tier`、`Binding`、`NPS` 均为待接入状态；它们不输出确定性业务答案，而是进入知识缺失处理。
+`Customer Type` 知识包处于已加载状态，可演示购买频次、大单、新客、LFL、MTD/YTD/R12/WTD、复购、退款、招新和数据更新时间等已审核口径。`Product`、`Member Tier`、`Binding`、`NPS` 均为待接入状态；它们不输出确定性业务答案，而是进入知识缺失处理。四张非默认报表还必须在各自配置中声明跨报表 `routePatterns`；其全部快捷问题都必须能从 `Customer Type` 上下文稳定路由到所属报表。
 
 ### FR-RTE-01 待接入知识路由
 
 `pickResponse` 必须先检查当前报表是否待接入，再判断任何确定性口径、跨报表或范围外关键词。待接入状态必须返回知识缺失结构（`no-answer` 与 `in_scope_unanswered`），因此四张待接入报表不会因关键词匹配而进入确定性答案。
+
+跨报表判断必须由 `reportConfigs` 中每张目标报表的 `questions` 与 `routePatterns` 驱动，不能另建容易漂移的硬编码路由表。`findCrossReportRoute` 先匹配完整快捷问题，再匹配同一配置中的意图规则，并返回目标报表的 key 与名称。浏览器回归必须表驱动遍历四张非默认报表的每个快捷问题。
 
 ## 4. 提问与会话功能需求
 
@@ -36,8 +38,8 @@
 ### FR-INP-01 输入、加载与操作提示
 
 - 用户可以点击快捷问题、推荐追问、发送按钮，或按 Enter 发送。
-- Shift+Enter 必须保留为换行；输入最多 500 字，计数器同步显示输入长度。
-- 发送后输入内容会成为用户消息，按钮在加载期间禁用，页面显示正在核对所选报表口径的加载提示。
+- Shift+Enter 必须保留为换行；中文输入法组合输入期间的 Enter 以及兼容性 `keyCode === 229` 不得发送或阻止候选词确认；输入最多 500 字，计数器同步显示输入长度。
+- 发送后输入内容会成为用户消息，发送和“新建对话”按钮在加载期间显式禁用，页面显示正在核对所选报表口径的加载提示。
 - 原型在 650ms 后显示模拟回答；不调用网络 API。
 - 空白问题或加载期间的重复发送不产生新消息。
 
@@ -48,6 +50,12 @@
 - 第一次有效提问会在“最近对话”中生成一个截断的当前会话标题。
 - 新建对话会清空消息、恢复欢迎态、清空输入和字符计数，同时保留当前报表选择。
 - 最近对话、当前会话标题和导航均为模拟效果；刷新页面后不保存。
+
+### FR-ERR-01 异常提示与状态恢复
+
+- 延迟回答阶段的路由或渲染异常必须由 `sendQuestion` 捕获，并通过 `renderError` 在消息流中显示带 `role="alert"` 的可见错误提示；不得向用户暴露技术堆栈。
+- 无论回答成功或失败，清理都必须在 `finally` 中执行：移除加载提示、把 `isTyping` 恢复为 false、重新启用发送和“新建对话”按钮，并把焦点返回输入框。
+- 异常后页面必须可以继续提交下一条问题；浏览器回归使用故障注入验证错误提示、状态恢复及后续正常回答。
 
 ## 5. 四类分流与回答呈现
 
@@ -62,15 +70,15 @@
 
 ### FR-SNP-01 提问时快照与知识依据
 
-`currentSnapshot` 在发送问题前捕获报表 key、名称和知识包名称；同一快照必须同时传给路由和回答渲染。正常回答的知识依据默认收起。展开或收起时需更新 `aria-expanded`；`citationLabel` 必须把提问快照的报表名作为每条知识依据标题的前缀，即使原始来源名没有可替换的报表字样。历史回答继续使用各自的 snapshot。反馈按钮互斥选中，并只显示模拟效果的 Toast 提示。Toast 在 1800ms 后消失。
+`currentSnapshot` 在发送问题前捕获报表 key、名称和知识包名称；同一快照必须同时传给路由和回答渲染。正常回答的知识依据默认收起。每个依据区域必须有唯一 `id`，折叠按钮以 `aria-controls` 精确关联，并在展开或收起时同步 `aria-expanded` 与区域的 `hidden` 状态；`citationLabel` 必须把提问快照的报表名作为每条知识依据标题的前缀，即使原始来源名没有可替换的报表字样。历史回答继续使用各自的 snapshot。反馈按钮以互斥的 `aria-pressed` 暴露选中状态，并只显示模拟效果的 Toast 提示。Toast 在 1800ms 后消失。
 
 ## 6. 响应式与无障碍
 
 ### FR-A11Y-01 响应式侧栏可访问性
 
-桌面端左侧栏宽度为 272px，对话内容最大宽度为 900px。响应式侧栏在 768px 以下转为默认关闭的覆盖式抽屉；菜单按钮可打开，遮罩可关闭，Escape 也可关闭。打开时焦点移入侧栏，关闭时恢复到触发元素；侧栏开闭时必须同步 `aria-expanded`、`aria-hidden` 与不可聚焦状态。静态契约校验验证这些绑定和函数体证据，不替代浏览器中的焦点顺序与事件时序验收。
+桌面端左侧栏宽度为 272px，对话内容最大宽度为 900px。响应式侧栏在 768px 以下转为默认关闭的覆盖式抽屉；菜单按钮可打开，遮罩可关闭，Escape 也可关闭。关闭状态的遮罩必须同时设置 `hidden`、`aria-hidden="true"` 和 `tabindex="-1"`，打开时同步反转。打开时焦点移入侧栏，关闭时恢复到触发元素；若 200ms 延迟聚焦尚未执行，关闭操作必须先取消它。侧栏开闭时必须同步 `aria-expanded`、`aria-hidden` 与不可聚焦状态。静态契约校验验证这些绑定和函数体证据，不替代浏览器中的焦点顺序与事件时序验收。
 
-页面使用语义化按钮、关联标签、`aria-controls`、`aria-live`、状态角色和可见焦点样式。输入框可随内容增长，但高度上限为 132px；用户开启减少动态效果偏好时应减少动画。
+页面使用语义化按钮、关联标签、`aria-controls`、`aria-live`、状态角色和可见焦点样式。输入框聚焦时，输入容器必须呈现不被 textarea 局部样式覆盖的清晰轮廓。10px 的输入辅助文字和模拟效果说明对各自背景的对比度不得低于 4.5:1。输入框可随内容增长，但高度上限为 132px；用户开启减少动态效果偏好时应减少动画。
 
 ## 7. 原型范围
 
@@ -104,24 +112,31 @@
 | `#knowledgeStatus` | FR-RPT-01 | 切换时显示 ready/pending 的知识状态。 |
 | `#quickQuestions` | FR-RPT-01 | 承载按当前配置重渲染的快捷问题。 |
 | `pickResponse` | FR-RTE-01 | 在任何确定性匹配前优先把 pending 报表转为知识缺失。 |
+| `findCrossReportRoute` | FR-RTE-01 | 从各报表的 questions 与 routePatterns 配置解析目标报表。 |
 | `renderAnswer` | FR-ANS-01 | 正常回答含结论、计算口径、说明、快照、知识依据、追问与反馈；其余三类分别含模拟编号/提交确认、推荐报表卡和范围引导。 |
-| `toggleCitation` | FR-ANS-01 | 折叠或展开知识依据并同步 `aria-expanded`。 |
+| `toggleCitation` | FR-ANS-01 | 通过唯一 `aria-controls` 关联折叠或展开知识依据，并同步 `aria-expanded` 与 `hidden`。 |
 | `currentSnapshot` | FR-SNP-01 | 捕获提问时的报表 key、名称和知识包名称。 |
 | `citationLabel` | FR-SNP-01 | 为每条正常回答的知识依据标题加上 snapshot 报表名前缀。 |
-| `sendQuestion` | FR-INP-01 | 限制 500 字、阻止重复提交、保存快照并在 650ms 后渲染。 |
+| `sendQuestion` | FR-INP-01 | 限制 500 字、阻止重复提交、保存快照并在 650ms 后渲染；IME 组合输入不触发发送。 |
 | `showToast` | FR-INP-01 | 在 1800ms 后隐藏操作提示。 |
 | `#questionInput` | FR-INP-01 | 提供 500 字多行输入与 Enter/Shift+Enter 语义。 |
 | `#sendBtn` | FR-INP-01 | 在加载期间禁用以防重复发送。 |
+| `#newChatBtn` | FR-INP-01 | 在加载期间显式禁用，避免静默失效。 |
 | `#toast` | FR-INP-01 | 为操作结果提供短暂状态提示。 |
+| `#questionInput keydown: IME/Enter` | FR-INP-01 | 组合输入与 keyCode 229 不发送；普通 Enter 发送、Shift+Enter 换行。 |
+| `renderError` | FR-ERR-01 | 在回答异常时渲染可访问且不泄露技术细节的错误消息。 |
+| `setInteractionBusy` | FR-ERR-01 | 统一同步 isTyping、发送按钮和新建对话按钮，并由 finally 恢复。 |
 | `startNewChat` | FR-SES-01 | 清空消息、恢复欢迎态并保留报表选择。 |
 | `#welcomeState` | FR-SES-01 | 呈现并恢复无消息欢迎态。 |
 | `submitFeedback` | FR-SIM-01 | 互斥反馈并显示模拟效果提示。 |
+| `renderFeedback` | FR-A11Y-01 | 为两枚反馈按钮提供互斥的 `aria-pressed` 初始与动态状态。 |
 | `setConversationTitle` | FR-SIM-01 | 生成刷新后不保存的模拟会话标题。 |
 | `createTicket` | FR-SIM-01 | 只生成页面内模拟问题编号。 |
 | `#recentConversation` | FR-SIM-01 | 容纳当前会话的模拟视觉记录。 |
 | `openSidebar` | FR-A11Y-01 | 在 768px 以下打开侧栏并暴露给辅助技术。 |
 | `closeSidebar` | FR-A11Y-01 | 关闭侧栏、恢复焦点并在窄屏设为不可聚焦。 |
 | `syncSidebarAccessibility` | FR-A11Y-01 | 同步窄屏默认关闭时的 `aria-hidden` 与 inert 状态。 |
+| `syncSidebarOverlay` | FR-A11Y-01 | 同步遮罩的 hidden、aria-hidden 和 tabIndex。 |
 | `#mobileMenuBtn` | FR-A11Y-01 | 菜单按钮同步 `aria-expanded`。 |
 | `#sidebarOverlay` | FR-A11Y-01 | 遮罩点击关闭移动侧栏。 |
 | `document keydown: Escape` | FR-A11Y-01 | Escape 在侧栏打开时调用 `closeSidebar`。 |
@@ -131,8 +146,10 @@
 
 - 产品标题显示 `C Hive Sage｜指标顾问`，且页面作为单一 Web 工作台运行。
 - 五张报表可切换；切换后状态与快捷问题同步，已有回答仍显示原始报表快照。
-- Enter、Shift+Enter、500 字限制、650ms 加载、Toast 和新建对话均符合本文件定义。
+- Enter、Shift+Enter、中文 IME 保护、500 字限制、650ms 加载、Toast 和加载期间禁用新建对话均符合本文件定义。
 - 四类分流均可由页面交互演示，待接入的四张报表不输出确定性业务答案。
-- 响应式侧栏在 768px 以下可通过菜单、遮罩和 Escape 操作，且无障碍状态同步。
+- 四张非默认报表配置中的全部快捷问题均能从 Customer Type 路由到正确报表。
+- 回答异常会显示可访问提示并在 `finally` 恢复输入、按钮和后续提问能力。
+- 响应式侧栏在 768px 以下可通过菜单、遮罩和 Escape 操作，且遮罩、焦点和无障碍状态同步。
 - 全部工单、反馈、历史会话和导航均明确为模拟效果；不依赖外部网络资源。
-- `verify_web_prototype.py` 与 `verify_requirements_sync.py` 均通过。
+- `verify_web_prototype.py`、`verify_requirements_sync.py`、`verify_final_review_regressions.py` 与 `verify_web_runtime.py` 均通过。

@@ -23,8 +23,8 @@ REQUIREMENT_CONTRACTS = {
         "behavior": "five reports and ready/pending route updates",
     },
     "FR-RTE-01": {
-        "functions": ("pickResponse",), "dom_ids": (),
-        "behavior": "pending reports route before deterministic answers",
+        "functions": ("pickResponse", "findCrossReportRoute"), "dom_ids": (),
+        "behavior": "pending reports route first and cross-report routes stay configuration-driven",
     },
     "FR-ANS-01": {
         "functions": ("renderAnswer", "toggleCitation"), "dom_ids": (),
@@ -36,8 +36,13 @@ REQUIREMENT_CONTRACTS = {
     },
     "FR-INP-01": {
         "functions": ("sendQuestion", "showToast"),
-        "dom_ids": ("questionInput", "sendBtn", "toast"),
-        "behavior": "keyboard input, 500-character guard, loading, and timed toast",
+        "dom_ids": ("questionInput", "sendBtn", "newChatBtn", "toast"),
+        "events": ("#questionInput keydown: IME/Enter",),
+        "behavior": "IME-safe keyboard input, 500-character guard, explicit loading state, and timed toast",
+    },
+    "FR-ERR-01": {
+        "functions": ("renderError", "setInteractionBusy"), "dom_ids": (),
+        "behavior": "answer failures render an alert and finally restore all interaction state",
     },
     "FR-SES-01": {
         "functions": ("startNewChat",), "dom_ids": ("welcomeState",),
@@ -49,7 +54,10 @@ REQUIREMENT_CONTRACTS = {
         "behavior": "ticket, feedback, history, and navigation remain simulated",
     },
     "FR-A11Y-01": {
-        "functions": ("openSidebar", "closeSidebar", "syncSidebarAccessibility"),
+        "functions": (
+            "openSidebar", "closeSidebar", "syncSidebarAccessibility",
+            "syncSidebarOverlay", "renderFeedback",
+        ),
         "dom_ids": ("mobileMenuBtn", "sidebarOverlay"),
         "events": ("document keydown: Escape", "#sidebarOverlay click"),
         "behavior": "mobile sidebar keeps aria-expanded, aria-hidden, and inert synchronized",
@@ -119,6 +127,7 @@ def has_report_config(script: str, key: str, name: str, status: str) -> bool:
         f"status: '{status}'",
         "knowledgePackageName:",
         "owner:",
+        "routePatterns:",
         "questions:",
     ))
 
@@ -168,6 +177,19 @@ def check_source_contracts(index: str, script: str) -> str | None:
     if not contains_all(pending_block, "status: 'no-answer'", "relevanceStatus: 'in_scope_unanswered'"):
         return "pending reports must return the knowledge-missing response shape"
 
+    cross_route = function_body(script, "findCrossReportRoute")
+    if not contains_all(
+        cross_route,
+        "Object.entries(reportConfigs)",
+        "config.questions.includes(question)",
+        "config.routePatterns.some",
+        "targetReport: config.name",
+        "targetKey",
+    ):
+        return "cross-report routing must use each report's questions and routePatterns"
+    if "findCrossReportRoute(question, reportKey)" not in routing:
+        return "pickResponse must delegate cross-report matching to the report configuration"
+
     answer = function_body(script, "renderAnswer")
     no_answer = branch_body(
         answer,
@@ -192,6 +214,8 @@ def check_source_contracts(index: str, script: str) -> str | None:
         "<h3>说明</h3>",
         "提问时所选报表：",
         "citation-toggle",
+        'aria-controls="${citationId}"',
+        'id="${citationId}"',
         "renderSuggestions(response.suggestions)",
         "renderFeedback()",
     ):
@@ -215,36 +239,58 @@ def check_source_contracts(index: str, script: str) -> str | None:
 
     if not re.search(r"<textarea[^>]+id=\"questionInput\"[^>]+maxlength=\"500\"", index):
         return "questionInput must be a 500-character textarea"
-    if not contains_all(send, ".trim().slice(0, 500)", "appState.isTyping", "sendBtn.disabled = true", "}, 650);"):
+    if not contains_all(send, ".trim().slice(0, 500)", "appState.isTyping", "setInteractionBusy(true)", "}, 650);"):
         return "sendQuestion must enforce 500 characters, prevent duplicates, and use the 650ms demo delay"
-    if not re.search(r"event\.key === 'Enter'\s*&&\s*!event\.shiftKey", script):
-        return "Enter must send while Shift+Enter remains available for multiline input"
+    if not re.search(
+        r"event\.isComposing\s*\|\|\s*event\.keyCode\s*===\s*229.*?"
+        r"event\.key\s*===\s*'Enter'.*?!event\.shiftKey.*?!isComposing",
+        script,
+        re.DOTALL,
+    ):
+        return "Enter must send while Shift+Enter and IME composition remain available for input"
     if not re.search(r"setTimeout\([^;]+,\s*1800\);", function_body(script, "showToast")):
         return "showToast must clear after 1800ms"
+
+    render_error = function_body(script, "renderError")
+    busy_state = function_body(script, "setInteractionBusy")
+    if not contains_all(send, "try {", "catch (error)", "renderError(error, snapshot)", "finally {", "setInteractionBusy(false)"):
+        return "sendQuestion must render failures and restore interaction from finally"
+    if not contains_all(render_error, "error-message", "setAttribute('role', 'alert')", "暂时无法生成回答"):
+        return "renderError must add a visible accessible failure message"
+    if not contains_all(busy_state, "appState.isTyping = isBusy", "sendBtn.disabled = isBusy", "newChatBtn.disabled = isBusy"):
+        return "setInteractionBusy must synchronize typing, send, and new-chat state"
 
     open_sidebar = function_body(script, "openSidebar")
     close_sidebar = function_body(script, "closeSidebar")
     sync_sidebar = function_body(script, "syncSidebarAccessibility")
+    sync_overlay = function_body(script, "syncSidebarOverlay")
     if not contains_all(open_sidebar, "aria-expanded', 'true'", "aria-hidden', 'false'", "removeAttribute('inert')"):
         return "openSidebar must expose the mobile sidebar to assistive technology"
     if not contains_all(close_sidebar, "aria-expanded', 'false'", "aria-hidden', 'true'", "setAttribute('inert', '')"):
         return "closeSidebar must hide and inert the mobile sidebar"
     if not contains_all(sync_sidebar, "max-width: 767px", "setAttribute('inert', '')", "removeAttribute('inert')"):
         return "syncSidebarAccessibility must keep narrow-screen sidebar state synchronized"
-    if not contains_all(open_sidebar, "appState.lastSidebarTrigger = document.activeElement", "newChatBtn').focus()"):
+    if not contains_all(open_sidebar, "appState.lastSidebarTrigger = document.activeElement", "newChatBtn.focus()"):
         return "openSidebar must move focus into the mobile sidebar"
-    if not contains_all(close_sidebar, "appState.lastSidebarTrigger.focus()", "sidebarOverlay').tabIndex = -1"):
-        return "closeSidebar must restore focus and remove the overlay from tab order"
+    if not contains_all(close_sidebar, "appState.lastSidebarTrigger.focus()", "clearTimeout(appState.sidebarFocusTimer)", "syncSidebarOverlay()"):
+        return "closeSidebar must cancel delayed focus, restore focus, and hide the overlay"
+    if not contains_all(sync_overlay, "overlay.hidden", "aria-hidden", "overlay.tabIndex"):
+        return "syncSidebarOverlay must update visual, accessibility, and tab-order state together"
+    if not re.search(r'id="sidebarOverlay"[^>]+aria-hidden="true"[^>]+hidden', index):
+        return "the closed sidebar overlay must start hidden from assistive technology"
     if not re.search(r"document\.getElementById\('sidebarOverlay'\)\.addEventListener\('click',\s*closeSidebar\)", script):
         return "sidebar overlay must be bound to closeSidebar"
     if not re.search(r"document\.addEventListener\('keydown',\s*\(event\)\s*=>\s*\{\s*if \(event\.key === 'Escape' && appState\.sidebarOpen\) closeSidebar\(\);", script):
         return "Escape keydown must close an open mobile sidebar"
 
     feedback = function_body(script, "submitFeedback")
+    feedback_markup = function_body(script, "renderFeedback")
     title = function_body(script, "setConversationTitle")
     ticket = function_body(script, "createTicket")
     if not contains_all(feedback, "模拟标记", "模拟记录"):
         return "feedback must remain explicitly simulated"
+    if not contains_all(feedback_markup, 'aria-pressed="false"', 'role="group"') or "setAttribute('aria-pressed'" not in feedback:
+        return "feedback buttons must expose an exclusive aria-pressed state"
     if "当前会话 · 模拟效果" not in title or "KQ-20260920-" not in ticket:
         return "history and ticket behavior must remain explicitly simulated"
     if "模拟导航完成" not in script or "历史会话、导航、问题提交与反馈均为模拟效果" not in index:
@@ -252,7 +298,7 @@ def check_source_contracts(index: str, script: str) -> str | None:
 
     function_evidence = {
         "renderQuickQuestions": ("config.questions.map", "quickQuestions').innerHTML"),
-        "toggleCitation": ("citation.classList.toggle", "button.setAttribute('aria-expanded'"),
+        "toggleCitation": ("button.getAttribute('aria-controls')", "citation.hidden", "button.setAttribute('aria-expanded'"),
         "startNewChat": ("messageList.replaceChildren()", "welcomeState.hidden = false", "当前报表选择保持不变"),
     }
     for function_name, expected_evidence in function_evidence.items():
