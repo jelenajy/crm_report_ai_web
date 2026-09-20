@@ -50,6 +50,19 @@ def fail(message: str) -> int:
     return 1
 
 
+def has_function(source: str, function_name: str) -> bool:
+    """Return whether source declares the name as a function or arrow function."""
+    escaped_name = re.escape(function_name)
+    patterns = (
+        rf"\bfunction\s*\*?\s+{escaped_name}\s*\(",
+        rf"\b(?:const|let|var)\s+{escaped_name}\s*=\s*"
+        rf"(?:async\s+)?function\s*\*?\s*\(",
+        rf"\b(?:const|let|var)\s+{escaped_name}\s*=\s*"
+        rf"(?:async\s+)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>",
+    )
+    return any(re.search(pattern, source) for pattern in patterns)
+
+
 def main() -> int:
     if not INDEX.exists():
         return fail("index.html does not exist")
@@ -66,16 +79,12 @@ def main() -> int:
     missing_functions = [
         function_name
         for function_name in REQUIRED_FUNCTIONS
-        if not re.search(
-            rf"(?:function\s+{re.escape(function_name)}\b|"
-            rf"(?:const|let|var)\s+{re.escape(function_name)}\s*=\s*(?:async\s*)?(?:function\b|\(?\s*)",
-            source,
-        )
+        if not has_function(source, function_name)
     ]
     if missing_functions:
         return fail("missing functions: " + ", ".join(missing_functions))
 
-    if "C Hive Sage" not in source or "指标顾问" not in source:
+    if "C Hive Sage｜指标顾问" not in source:
         return fail("missing product name: C Hive Sage｜指标顾问")
 
     print("PASS: web prototype interaction contract exists")
