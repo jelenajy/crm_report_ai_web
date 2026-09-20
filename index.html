@@ -642,7 +642,7 @@
     }
 
     function citationLabel(response, snapshot) {
-      return String(response.citation).replace(/客质月报/g, snapshot.name);
+      return `${snapshot.name} · ${String(response.citation)}`;
     }
 
     function renderAnswer(response, snapshot = currentSnapshot()) {

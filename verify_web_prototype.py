@@ -36,6 +36,7 @@ REQUIRED_FUNCTIONS = (
     "sendQuestion",
     "pickResponse",
     "renderAnswer",
+    "citationLabel",
     "toggleCitation",
     "submitFeedback",
     "startNewChat",
@@ -86,6 +87,12 @@ def main() -> int:
 
     if "C Hive Sage｜指标顾问" not in source:
         return fail("missing product name: C Hive Sage｜指标顾问")
+
+    if not re.search(
+        r"return\s+`\$\{snapshot\.name\}\s*·\s*\$\{String\(response\.citation\)\}`",
+        source,
+    ):
+        return fail("citation labels must include the question-time report snapshot")
 
     print("PASS: web prototype interaction contract exists")
     return 0

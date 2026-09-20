@@ -8,3 +8,4 @@
 - 增加左侧导航、五报表路由、移动端覆盖式侧栏及 Escape/遮罩关闭交互。
 - 迁移 Customer Type 模拟问答、四类问题分流、知识依据、追问、反馈和模拟会话逻辑。
 - 新增 `verify_web_prototype.py` 与 `verify_requirements_sync.py` 两类自动校验，并补齐需求和 HTML 行为映射。
+- 强化需求同步校验为 requirement ID、函数、DOM 与实现行为的双向结构化契约；所有正常回答的知识依据标题现固定包含提问时的报表快照。
