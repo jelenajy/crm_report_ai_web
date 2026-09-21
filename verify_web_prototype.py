@@ -46,6 +46,8 @@ REQUIRED_FUNCTIONS = (
     "showToast",
 )
 
+VISIBLE_BANNED_COPY = ("原型演示", "模拟效果", "模拟提交", "模拟导航")
+
 
 def fail(message: str) -> int:
     print(f"FAIL: {message}")
@@ -89,6 +91,21 @@ def main() -> int:
     if "C Hive Sage｜指标顾问" not in source:
         return fail("missing product name: C Hive Sage｜指标顾问")
 
+    for token in VISIBLE_BANNED_COPY:
+        if token in source:
+            return fail(f"visible prototype copy remains: {token}")
+
+    if "原型" in source:
+        return fail("visible prototype copy remains: 原型")
+
+    for token in ("Consumer Hive", "C Hive Sage", "指标顾问", "CONSUMER HIVE INTELLIGENCE"):
+        if token not in source:
+            return fail(f"missing premium brand token: {token}")
+
+    for token in ('class="hive-mark"', 'class="north-star"', 'id="reportMenu"', 'data-report-option'):
+        if token not in source:
+            return fail(f"missing premium UI contract: {token}")
+
     if not re.search(
         r"return\s+`\$\{snapshot\.name\}\s*·\s*\$\{String\(response\.citation\)\}`",
         source,
@@ -123,6 +140,20 @@ def main() -> int:
         "setAttribute('aria-pressed'", "overlay.hidden", "aria-hidden=\"true\"",
     )):
         return fail("citation, feedback, and overlay dynamic accessibility states are incomplete")
+
+    report_option_handler = re.search(
+        r"if\s*\(reportOption\)\s*\{(?P<body>.*?)\}\s*else\s+if",
+        source,
+        re.DOTALL,
+    )
+    report_option_body = report_option_handler.group("body") if report_option_handler else ""
+    if (
+        "reportSelector.value" not in report_option_body
+        or "closeReportMenu();" not in report_option_body
+        or "handleReportChange" not in report_option_body
+        or report_option_body.index("closeReportMenu();") > report_option_body.index("handleReportChange")
+    ):
+        return fail("custom report selection must close its menu before mobile sidebar focus restoration")
 
     print("PASS: web prototype interaction contract exists")
     return 0

@@ -99,6 +99,11 @@ def main() -> int:
     check("outline:" in focus_rule and "outline: 0" not in focus_rule, "composer needs a visible focus-within outline")
     check("outline: 0" not in textarea_rule, "textarea rule must not erase its visible focus")
 
+    check("3.6s" in css_rule(index, ".north-star"), "north-star twinkle duration must be 3.6s")
+    check("prefers-reduced-motion: reduce" in index, "logo motion must honor reduced-motion")
+    check("border-radius: 16px" in css_rule(index, ".report-menu"), "report menu must be rounded")
+    check("border: 0" in css_rule(index, ".report-menu"), "report menu must not have an edge line")
+
     send_question = function_body(index, "sendQuestion")
     render_error = function_body(index, "renderError")
     busy_state = function_body(index, "setInteractionBusy")
@@ -129,11 +134,11 @@ def main() -> int:
         "sidebar overlay visibility, ARIA state, and tab order must update together",
     )
 
-    simulation_color = color_value(css_rule(index, ".simulation-note"))
+    conversation_note_color = color_value(css_rule(index, ".conversation-note"))
     composer_color = color_value(css_rule(index, ".composer-meta"))
     check(
-        bool(simulation_color) and contrast_ratio(simulation_color or "#000000", "#171714") >= 4.5,
-        "10px sidebar simulation text must reach 4.5:1 contrast",
+        bool(conversation_note_color) and contrast_ratio(conversation_note_color or "#000000", "#171714") >= 4.5,
+        "10px sidebar conversation note must reach 4.5:1 contrast",
     )
     check(
         bool(composer_color) and contrast_ratio(composer_color or "#000000", "#f5f1e9") >= 4.5,
