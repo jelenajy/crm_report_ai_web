@@ -403,11 +403,11 @@
         <div class="report-control">
           <button class="report-trigger" id="reportTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="reportMenu">Customer Type</button>
           <div class="report-menu" id="reportMenu" role="listbox" aria-labelledby="reportSelectLabel" hidden>
-            <button class="report-option" type="button" role="option" aria-selected="true" data-report-option="customer_type">Customer Type</button>
-            <button class="report-option" type="button" role="option" aria-selected="false" data-report-option="product">Product</button>
-            <button class="report-option" type="button" role="option" aria-selected="false" data-report-option="member_tier">Member Tier</button>
-            <button class="report-option" type="button" role="option" aria-selected="false" data-report-option="binding">Binding</button>
-            <button class="report-option" type="button" role="option" aria-selected="false" data-report-option="nps">NPS</button>
+            <button class="report-option" type="button" role="option" aria-selected="true" tabindex="-1" data-report-option="customer_type">Customer Type</button>
+            <button class="report-option" type="button" role="option" aria-selected="false" tabindex="-1" data-report-option="product">Product</button>
+            <button class="report-option" type="button" role="option" aria-selected="false" tabindex="-1" data-report-option="member_tier">Member Tier</button>
+            <button class="report-option" type="button" role="option" aria-selected="false" tabindex="-1" data-report-option="binding">Binding</button>
+            <button class="report-option" type="button" role="option" aria-selected="false" tabindex="-1" data-report-option="nps">NPS</button>
           </div>
           <select class="sr-only" id="reportSelector" aria-hidden="true" tabindex="-1">
             <option value="customer_type">Customer Type</option>
@@ -671,10 +671,62 @@
       if (restoreFocus) reportTrigger.focus();
     }
 
+    function openReportMenu() {
+      reportMenu.hidden = false;
+      reportTrigger.setAttribute('aria-expanded', 'true');
+      const selectedOption = reportMenu.querySelector('[aria-selected="true"]');
+      if (selectedOption) selectedOption.focus();
+    }
+
     function toggleReportMenu() {
-      const willOpen = reportMenu.hidden;
-      reportMenu.hidden = !willOpen;
-      reportTrigger.setAttribute('aria-expanded', String(willOpen));
+      if (reportMenu.hidden) {
+        openReportMenu();
+      } else {
+        closeReportMenu(true);
+      }
+    }
+
+    function selectReportOption(reportOption) {
+      const isMobile = window.matchMedia('(max-width: 767px)').matches;
+      reportSelector.value = reportOption.dataset.reportOption;
+      closeReportMenu();
+      handleReportChange({ target: reportSelector });
+      if (!isMobile) reportTrigger.focus();
+    }
+
+    function handleReportMenuKeydown(event) {
+      const reportOption = event.target.closest('[data-report-option]');
+      if (!reportOption) return;
+
+      if (event.key === 'Tab') {
+        setTimeout(() => closeReportMenu(), 0);
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeReportMenu(true);
+        return;
+      }
+
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectReportOption(reportOption);
+        return;
+      }
+
+      const options = Array.from(reportMenu.querySelectorAll('[data-report-option]'));
+      const currentIndex = options.indexOf(reportOption);
+      let nextIndex = currentIndex;
+      if (event.key === 'ArrowDown') nextIndex = Math.min(currentIndex + 1, options.length - 1);
+      else if (event.key === 'ArrowUp') nextIndex = Math.max(currentIndex - 1, 0);
+      else if (event.key === 'Home') nextIndex = 0;
+      else if (event.key === 'End') nextIndex = options.length - 1;
+      else return;
+
+      event.preventDefault();
+      options[nextIndex].focus();
     }
 
     function handleReportChange(event) {
@@ -996,6 +1048,7 @@
 
     reportSelector.addEventListener('change', handleReportChange);
     reportTrigger.addEventListener('click', toggleReportMenu);
+    reportMenu.addEventListener('keydown', handleReportMenuKeydown);
     document.getElementById('newChatBtn').addEventListener('click', startNewChat);
     document.getElementById('mobileMenuBtn').addEventListener('click', openSidebar);
     document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
@@ -1026,11 +1079,7 @@
     document.addEventListener('click', (event) => {
       const reportOption = event.target.closest('[data-report-option]');
       if (reportOption) {
-        const isMobile = window.matchMedia('(max-width: 767px)').matches;
-        reportSelector.value = reportOption.dataset.reportOption;
-        closeReportMenu();
-        handleReportChange({ target: reportSelector });
-        if (!isMobile) reportTrigger.focus();
+        selectReportOption(reportOption);
       } else if (!event.target.closest('.report-control')) {
         closeReportMenu();
       }
@@ -1052,10 +1101,13 @@
       }
     });
 
-    window.addEventListener('resize', () => {
+    function handleViewportResize() {
+      closeReportMenu();
       if (!window.matchMedia('(max-width: 767px)').matches && appState.sidebarOpen) closeSidebar();
       syncSidebarAccessibility();
-    });
+    }
+
+    window.addEventListener('resize', handleViewportResize);
 
     renderQuickQuestions();
     syncReportControl();

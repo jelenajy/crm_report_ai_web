@@ -42,6 +42,30 @@ def css_rule(source: str, selector: str) -> str:
     return match.group("body") if match else ""
 
 
+def block_body(source: str, header_pattern: str) -> str:
+    header = re.search(header_pattern, source)
+    if not header:
+        return ""
+    opening_brace = source.find("{", header.end())
+    depth = 0
+    for position in range(opening_brace, len(source)):
+        if source[position] == "{":
+            depth += 1
+        elif source[position] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening_brace + 1 : position]
+    return ""
+
+
+def selector_has_declaration(source: str, selector: str, declaration: str) -> bool:
+    for match in re.finditer(r"(?P<selectors>[^{}]+)\{(?P<body>[^{}]*)\}", source):
+        selectors = (item.strip() for item in match.group("selectors").split(","))
+        if selector in selectors and declaration in re.sub(r"\s+", " ", match.group("body")):
+            return True
+    return False
+
+
 def color_value(rule: str) -> str | None:
     match = re.search(r"\bcolor\s*:\s*(#[0-9a-fA-F]{6})\b", rule)
     return match.group(1) if match else None
@@ -100,7 +124,11 @@ def main() -> int:
     check("outline: 0" not in textarea_rule, "textarea rule must not erase its visible focus")
 
     check("3.6s" in css_rule(index, ".north-star"), "north-star twinkle duration must be 3.6s")
-    check("prefers-reduced-motion: reduce" in index, "logo motion must honor reduced-motion")
+    reduced_motion = block_body(index, r"@media\s*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)")
+    check(
+        selector_has_declaration(reduced_motion, ".north-star", "animation: none"),
+        "reduced-motion rule must explicitly disable north-star animation",
+    )
     check("border-radius: 16px" in css_rule(index, ".report-menu"), "report menu must be rounded")
     check("border: 0" in css_rule(index, ".report-menu"), "report menu must not have an edge line")
 

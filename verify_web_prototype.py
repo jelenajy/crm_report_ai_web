@@ -43,6 +43,10 @@ REQUIRED_FUNCTIONS = (
     "openSidebar",
     "closeSidebar",
     "syncSidebarOverlay",
+    "openReportMenu",
+    "selectReportOption",
+    "handleReportMenuKeydown",
+    "handleViewportResize",
     "showToast",
 )
 
@@ -65,6 +69,22 @@ def has_function(source: str, function_name: str) -> bool:
         rf"(?:async\s+)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>",
     )
     return any(re.search(pattern, source) for pattern in patterns)
+
+
+def function_body(source: str, function_name: str) -> str:
+    declaration = re.search(rf"\bfunction\s+{re.escape(function_name)}\b", source)
+    if not declaration:
+        return ""
+    opening_brace = source.find("{", declaration.end())
+    depth = 0
+    for position in range(opening_brace, len(source)):
+        if source[position] == "{":
+            depth += 1
+        elif source[position] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[declaration.start() : position + 1]
+    return ""
 
 
 def main() -> int:
@@ -105,6 +125,27 @@ def main() -> int:
     for token in ('class="hive-mark"', 'class="north-star"', 'id="reportMenu"', 'data-report-option'):
         if token not in source:
             return fail(f"missing premium UI contract: {token}")
+
+    report_options = re.findall(r"<button\b[^>]*\bdata-report-option\s*=\s*['\"][^'\"]+['\"][^>]*>", source)
+    if len(report_options) != 5 or any(not re.search(r"\btabindex\s*=\s*['\"]-1['\"]", option) for option in report_options):
+        return fail("custom report options must be programmatically focusable, not independent tab stops")
+
+    open_report_menu = function_body(source, "openReportMenu")
+    if '[aria-selected="true"]' not in open_report_menu or ".focus()" not in open_report_menu:
+        return fail("opening the report menu must focus the selected option")
+
+    menu_keydown = function_body(source, "handleReportMenuKeydown")
+    if not all(key in menu_keydown for key in ("ArrowDown", "ArrowUp", "Home", "End", "Enter", "' '", "Escape", "Tab")):
+        return fail("custom report listbox must implement the complete keyboard model")
+    if "closeReportMenu(true)" not in menu_keydown:
+        return fail("Escape must close the report menu and restore trigger focus")
+    tab_branch = re.search(r"event\.key\s*===\s*['\"]Tab['\"](?P<body>.*?)(?:return|\})", menu_keydown, re.DOTALL)
+    if not tab_branch or "closeReportMenu()" not in tab_branch.group("body") or "preventDefault" in tab_branch.group("body"):
+        return fail("Tab must close the report menu without trapping focus")
+
+    viewport_resize = function_body(source, "handleViewportResize")
+    if "closeReportMenu()" not in viewport_resize:
+        return fail("responsive resize must close the custom report menu")
 
     if not re.search(
         r"return\s+`\$\{snapshot\.name\}\s*·\s*\$\{String\(response\.citation\)\}`",
@@ -147,11 +188,13 @@ def main() -> int:
         re.DOTALL,
     )
     report_option_body = report_option_handler.group("body") if report_option_handler else ""
+    select_report_option = function_body(source, "selectReportOption")
     if (
-        "reportSelector.value" not in report_option_body
-        or "closeReportMenu();" not in report_option_body
-        or "handleReportChange" not in report_option_body
-        or report_option_body.index("closeReportMenu();") > report_option_body.index("handleReportChange")
+        "selectReportOption(reportOption)" not in report_option_body
+        or "reportSelector.value" not in select_report_option
+        or "closeReportMenu();" not in select_report_option
+        or "handleReportChange" not in select_report_option
+        or select_report_option.index("closeReportMenu();") > select_report_option.index("handleReportChange")
     ):
         return fail("custom report selection must close its menu before mobile sidebar focus restoration")
 
