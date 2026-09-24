@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the V1.0 requirement-to-prototype contract, not just keywords."""
+"""Validate the web requirement-to-code contract, including premium UI scope."""
 
 from __future__ import annotations
 
@@ -13,7 +13,17 @@ INDEX = ROOT / "index.html"
 REQUIREMENTS = ROOT / "web版report_ai需求文档.md"
 
 FORBIDDEN_REQUIREMENT_TERMS = (
-    "C Hive Lens", "Power BI 浮窗", "截图", "iframe", "真实后台",
+    "C Hive Lens", "Power BI 浮窗", "截图", "iframe",
+)
+
+PREMIUM_REQUIREMENT_TOKENS = (
+    "Consumer Hive",
+    "八角北极星",
+    "定制报表菜单",
+    "openReportMenu",
+    "applyReportSelection",
+    "查看知识依据",
+    "用户可见页面不得出现",
 )
 
 REQUIREMENT_CONTRACTS = {
@@ -344,6 +354,9 @@ def main() -> int:
 
     if "C Hive Sage｜指标顾问" not in requirements or "V1.0 Web" not in requirements:
         return fail("requirements are missing the product and version identity")
+    for token in PREMIUM_REQUIREMENT_TOKENS:
+        if token not in requirements:
+            return fail(f"requirements missing premium UI contract: {token}")
     forbidden_terms = [item for item in FORBIDDEN_REQUIREMENT_TERMS if item in requirements]
     if forbidden_terms:
         return fail("requirements contain forbidden legacy or production wording: " + ", ".join(forbidden_terms))
