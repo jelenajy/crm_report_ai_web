@@ -19,6 +19,7 @@ REQUIREMENTS = ROOT / "web版report_ai需求文档.md"
 README = ROOT / "README.md"
 RUNTIME_RUNNER = ROOT / "verify_web_runtime.html"
 RUNTIME_DRIVER = ROOT / "verify_web_runtime.py"
+VISIBLE_BANNED_COPY = ("原型演示", "原型", "模拟效果", "模拟提交", "模拟导航")
 
 
 def function_body(source: str, name: str) -> str:
@@ -124,6 +125,10 @@ def main() -> int:
     check("outline: 0" not in textarea_rule, "textarea rule must not erase its visible focus")
 
     check("3.6s" in css_rule(index, ".north-star"), "north-star twinkle duration must be 3.6s")
+    check("data-report-option" in index, "custom report options are missing")
+    check("handleReportMenuKeydown" in index, "report menu keyboard support is missing")
+    check(not any(token in index for token in VISIBLE_BANNED_COPY), "banned visible copy remains")
+    check("prefers-reduced-motion: reduce" in index, "reduced motion contract is missing")
     reduced_motion = block_body(index, r"@media\s*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)")
     check(
         selector_has_declaration(reduced_motion, ".north-star", "animation: none"),
@@ -192,6 +197,9 @@ def main() -> int:
         "fault recovery finally",
         "citation and feedback ARIA",
         "overlay accessibility state",
+        "report menu dismissal and keyboard selection",
+        "new chat restores welcome and retains report",
+        "runtime page errors",
     )
     check(all(case in runtime for case in runtime_cases), "browser runner must cover every dynamic final-review regression")
     check(

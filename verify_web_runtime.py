@@ -97,16 +97,16 @@ def main() -> int:
             server.server_close()
             thread.join(timeout=3)
 
-    expected_markers = ('data-status="pass"', "PASS: 7/7 browser regressions")
+    expected_markers = ('data-status="pass"', "PASS: 10/10 browser regressions")
     if result.returncode != 0 or not all(marker in result.stdout for marker in expected_markers):
         print(f"FAIL: browser regressions did not pass (Chrome exit {result.returncode})")
         summary_start = result.stdout.find('<p id="summary"')
         if summary_start != -1:
-            print(result.stdout[summary_start : summary_start + 500])
+            print(result.stdout[summary_start : summary_start + 1800])
         if result.stderr.strip():
             print(result.stderr.strip().splitlines()[-1])
         return 1
-    print("PASS: 7/7 browser regressions and isolated-server boundary")
+    print("PASS: 10/10 browser regressions and isolated-server boundary")
     return 0
 
 

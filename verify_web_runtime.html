@@ -140,6 +140,51 @@
       assert(doc.getElementById('reportMenu').hidden, 'menu did not close after selection');
     });
 
+    test('report menu dismissal and keyboard selection', async (win, doc) => {
+      frame.style.width = '842px';
+      await delay(50);
+      win.syncSidebarAccessibility();
+      const trigger = doc.getElementById('reportTrigger');
+      const menu = doc.getElementById('reportMenu');
+      trigger.click();
+      const menuStyle = win.getComputedStyle(menu);
+      assert(Number.parseFloat(menuStyle.borderRadius) >= 16 && Number.parseFloat(menuStyle.borderTopWidth) === 0,
+        'report popup lost its rounded borderless appearance');
+      const optionRect = doc.activeElement.getBoundingClientRect();
+      const visibleOption = doc.elementFromPoint(optionRect.left + optionRect.width / 2, optionRect.top + optionRect.height / 2);
+      assert(visibleOption === doc.activeElement, 'report popup is layered beneath following sidebar content');
+      assert(doc.activeElement.dataset.reportOption === 'product', 'selected report did not receive focus');
+      doc.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      assert(menu.hidden && trigger.getAttribute('aria-expanded') === 'false', 'Escape did not close the report menu');
+      assert(doc.activeElement === trigger, 'Escape did not return focus to the report trigger');
+      assert(doc.getElementById('reportTitle').textContent === 'Product', 'Escape changed the selected report');
+
+      trigger.click();
+      doc.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      assert(doc.activeElement.dataset.reportOption === 'member_tier', 'ArrowDown did not move to the next report');
+      doc.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      assert(doc.getElementById('reportTitle').textContent === 'Member Tier', 'Enter did not select the focused report');
+      assert(menu.hidden && doc.activeElement === trigger, 'keyboard selection did not close menu and restore focus');
+
+      trigger.click();
+      doc.querySelector('.topbar').click();
+      assert(menu.hidden && trigger.getAttribute('aria-expanded') === 'false', 'outside click did not close the menu');
+      assert(doc.getElementById('reportTitle').textContent === 'Member Tier', 'outside click changed the selected report');
+    });
+
+    test('new chat restores welcome and retains report', async (win, doc) => {
+      win.applyReportSelection('product');
+      win.startNewChat();
+      win.sendQuestion('Product 的指标如何计算？');
+      await delay(750);
+      assert(doc.querySelectorAll('.message.user').length === 1, 'question did not enter the conversation');
+      doc.getElementById('newChatBtn').click();
+      assert(!doc.getElementById('welcomeState').hidden, 'new chat did not restore the welcome state');
+      assert(doc.getElementById('messageList').children.length === 0, 'new chat retained messages');
+      assert(doc.getElementById('reportTitle').textContent === 'Product', 'new chat discarded the selected report');
+      assert(doc.activeElement === doc.getElementById('questionInput'), 'new chat did not focus the input');
+    });
+
     test('citation and feedback ARIA', async (win, doc) => {
       win.startNewChat();
       const snapshot = { key: 'customer_type', name: 'Customer Type', knowledgePackageName: 'Customer Type 知识包 <em>快照</em>' };
@@ -172,15 +217,19 @@
     });
 
     test('overlay accessibility state', async (win, doc) => {
+      frame.style.width = '390px';
+      await delay(50);
+      win.syncSidebarAccessibility();
       const overlay = doc.getElementById('sidebarOverlay');
       const menu = doc.getElementById('mobileMenuBtn');
-      win.syncSidebarAccessibility();
       assert(win.matchMedia('(max-width: 767px)').matches, 'test iframe is not using the mobile breakpoint');
       assert(overlay.hidden && overlay.getAttribute('aria-hidden') === 'true' && overlay.tabIndex === -1, 'closed overlay remains exposed');
       menu.focus();
       win.openSidebar();
       assert(!overlay.hidden && overlay.getAttribute('aria-hidden') === 'false' && overlay.tabIndex === 0, 'open overlay is not exposed');
       assert(menu.getAttribute('aria-expanded') === 'true', 'menu did not expose the open state');
+      await delay(230);
+      assert(doc.activeElement === doc.getElementById('newChatBtn'), 'open sidebar did not move focus to its first action');
       doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await delay(240);
       assert(overlay.hidden && overlay.getAttribute('aria-hidden') === 'true' && overlay.tabIndex === -1, 'Escape did not hide the overlay');
@@ -198,10 +247,22 @@
       frame.style.width = '390px';
     });
 
+    const pageErrors = [];
+    test('runtime page errors', async () => {
+      assert(pageErrors.length === 0, `page emitted errors: ${pageErrors.join('; ')}`);
+    });
+
     async function run() {
       await waitForFrame();
       const win = frame.contentWindow;
       const doc = frame.contentDocument;
+      win.addEventListener('error', (event) => pageErrors.push(event.message || 'uncaught error'));
+      win.addEventListener('unhandledrejection', (event) => pageErrors.push(String(event.reason)));
+      const originalConsoleError = win.console.error;
+      win.console.error = (...args) => {
+        pageErrors.push(args.map(String).join(' '));
+        originalConsoleError.apply(win.console, args);
+      };
       let failures = 0;
       for (const entry of cases) {
         const item = document.createElement('li');
