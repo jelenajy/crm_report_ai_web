@@ -18,8 +18,11 @@ FORBIDDEN_REQUIREMENT_TERMS = (
 
 REQUIREMENT_CONTRACTS = {
     "FR-RPT-01": {
-        "functions": ("handleReportChange", "renderQuickQuestions"),
-        "dom_ids": ("reportSelector", "reportTitle", "knowledgeLabel", "knowledgeStatus", "quickQuestions"),
+        "functions": (
+            "handleReportChange", "renderQuickQuestions", "openReportMenu", "closeReportMenu",
+            "applyReportSelection", "handleReportMenuKeydown",
+        ),
+        "dom_ids": ("reportTrigger", "reportMenu", "reportTitle", "knowledgeLabel", "knowledgeStatus", "quickQuestions"),
         "behavior": "five reports and ready/pending route updates",
     },
     "FR-RTE-01": {
@@ -156,17 +159,31 @@ def check_source_contracts(index: str, script: str) -> str | None:
     if not all(has_report_config(script, *state) for state in report_states):
         return "five report configurations must declare the ready/pending contract"
 
-    report_change = function_body(script, "handleReportChange")
+    apply_selection = function_body(script, "applyReportSelection")
+    if not contains_all(
+        apply_selection,
+        "if (!reportConfigs[reportKey]) return",
+        "appState.reportKey = reportKey",
+        "updateReportContext()",
+        "renderQuickQuestions()",
+        "closeReportMenu({ restoreFocus: true })",
+    ):
+        return "applyReportSelection must be the unified report switching entry point"
+
+    close_menu = function_body(script, "closeReportMenu")
+    if not contains_all(close_menu, "reportMenu.hidden = true", "aria-expanded', 'false'", "restoreFocus"):
+        return "closeReportMenu must synchronize visibility and optionally restore trigger focus"
+
+    report_change = function_body(script, "updateReportContext")
     if not contains_all(
         report_change,
         "config.status === 'pending'",
         "document.getElementById('reportTitle').textContent",
         "document.getElementById('knowledgeLabel').textContent",
         "document.getElementById('knowledgeStatus')",
-        "renderQuickQuestions()",
         "历史回答保持原报表快照",
     ):
-        return "handleReportChange must update route state while preserving historical snapshots"
+        return "updateReportContext must update route state while preserving historical snapshots"
 
     routing = function_body(script, "pickResponse")
     pending_guard = routing.find("if (config.status === 'pending')")
@@ -214,17 +231,18 @@ def check_source_contracts(index: str, script: str) -> str | None:
         "<h3>说明</h3>",
         "提问时所选报表：",
         "citation-toggle",
+        "citation-chevron",
         'aria-controls="${citationId}"',
         'id="${citationId}"',
         "renderSuggestions(response.suggestions)",
         "renderFeedback()",
     ):
         return "normal answers must render conclusion, formula, rules, snapshot, citation, follow-ups, and feedback"
-    if not contains_all(no_answer, "提交为模拟效果", "知识待补充", "已生成模拟问题提交", "问题编号 ${ticket}"):
-        return "knowledge-missing answers must render simulated submission confirmation and ticket"
+    if not contains_all(no_answer, "知识待补充", "已生成待补充问题记录", "问题编号 ${ticket}"):
+        return "knowledge-missing answers must render submission confirmation and ticket"
     if not contains_all(cross_report, "跨报表提示", "report-recommendation", "推荐报表：", "data-report-target"):
         return "cross-report answers must render a report recommendation card"
-    if not contains_all(out_of_scope, "不创建问题编号", "问题范围提示", "scope-guide", "可以这样问我"):
+    if not contains_all(out_of_scope, "当前知识范围", "问题范围提示", "scope-guide", "可以这样问我"):
         return "out-of-scope answers must render the scope guide without a ticket"
 
     snapshot = function_body(script, "currentSnapshot")
@@ -280,21 +298,23 @@ def check_source_contracts(index: str, script: str) -> str | None:
         return "the closed sidebar overlay must start hidden from assistive technology"
     if not re.search(r"document\.getElementById\('sidebarOverlay'\)\.addEventListener\('click',\s*closeSidebar\)", script):
         return "sidebar overlay must be bound to closeSidebar"
-    if not re.search(r"document\.addEventListener\('keydown',\s*\(event\)\s*=>\s*\{\s*if \(event\.key === 'Escape' && appState\.sidebarOpen\) closeSidebar\(\);", script):
+    if not re.search(r"document\.addEventListener\('keydown'.*?event\.key !== 'Escape'.*?appState\.sidebarOpen.*?closeSidebar\(\)", script, re.DOTALL):
         return "Escape keydown must close an open mobile sidebar"
 
     feedback = function_body(script, "submitFeedback")
     feedback_markup = function_body(script, "renderFeedback")
     title = function_body(script, "setConversationTitle")
     ticket = function_body(script, "createTicket")
-    if not contains_all(feedback, "模拟标记", "模拟记录"):
-        return "feedback must remain explicitly simulated"
+    if not contains_all(feedback, "感谢反馈", "反馈已记录"):
+        return "feedback must confirm both available choices"
     if not contains_all(feedback_markup, 'aria-pressed="false"', 'role="group"') or "setAttribute('aria-pressed'" not in feedback:
         return "feedback buttons must expose an exclusive aria-pressed state"
-    if "当前会话 · 模拟效果" not in title or "KQ-20260920-" not in ticket:
-        return "history and ticket behavior must remain explicitly simulated"
-    if "模拟导航完成" not in script or "历史会话、导航、问题提交与反馈均为模拟效果" not in index:
-        return "navigation, tickets, history, and feedback must all be marked simulated"
+    if "当前会话 · 刷新后重置" not in title or "KQ-20260920-" not in ticket:
+        return "history and ticket behavior must remain page-local"
+    if any(term in index for term in ("原型", "原型演示", "模拟效果", "模拟提交", "模拟导航")):
+        return "visible HTML must not contain prototype or simulation wording"
+    if "applyReportSelection(reportButton.dataset.reportTarget)" not in script or "reportSelector.value" in script:
+        return "cross-report recommendations must use the unified report switching entry point"
 
     function_evidence = {
         "renderQuickQuestions": ("config.questions.map", "quickQuestions').innerHTML"),

@@ -143,14 +143,13 @@
       box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
     }
 
-    .report-trigger::after {
-      content: "⌄";
+    .report-trigger-chevron {
       color: var(--gold-strong);
       font-size: 14px;
       transition: transform 160ms ease;
     }
 
-    .report-trigger[aria-expanded="true"]::after { transform: rotate(180deg); }
+    .report-trigger[aria-expanded="true"] .report-trigger-chevron { transform: rotate(180deg); }
 
     .report-menu {
       position: absolute;
@@ -319,6 +318,8 @@
       background: transparent;
       font-size: 12px;
     }
+    .citation-chevron { display: inline-block; transition: transform 160ms ease; }
+    .citation-toggle[aria-expanded="true"] .citation-chevron { transform: rotate(180deg); }
     .citations { display: none; margin-top: 6px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); font-size: 12px; }
     .citations.open { display: block; }
     .citations strong, .citations small { display: block; }
@@ -401,21 +402,16 @@
       <section class="sidebar-section" aria-labelledby="reportSelectLabel">
         <div class="sidebar-label" id="reportSelectLabel">当前报表</div>
         <div class="report-control">
-          <button class="report-trigger" id="reportTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="reportMenu">Customer Type</button>
-          <div class="report-menu" id="reportMenu" role="listbox" aria-labelledby="reportSelectLabel" hidden>
+          <button class="report-trigger" id="reportTrigger" type="button" aria-haspopup="listbox" aria-controls="reportMenu" aria-expanded="false">
+            <span id="reportTriggerValue">Customer Type</span><span class="report-trigger-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div class="report-menu" id="reportMenu" role="listbox" aria-label="选择报表" hidden>
             <button class="report-option" type="button" role="option" aria-selected="true" tabindex="-1" data-report-option="customer_type">Customer Type</button>
             <button class="report-option" type="button" role="option" aria-selected="false" tabindex="-1" data-report-option="product">Product</button>
             <button class="report-option" type="button" role="option" aria-selected="false" tabindex="-1" data-report-option="member_tier">Member Tier</button>
             <button class="report-option" type="button" role="option" aria-selected="false" tabindex="-1" data-report-option="binding">Binding</button>
             <button class="report-option" type="button" role="option" aria-selected="false" tabindex="-1" data-report-option="nps">NPS</button>
           </div>
-          <select class="sr-only" id="reportSelector" aria-hidden="true" tabindex="-1">
-            <option value="customer_type">Customer Type</option>
-            <option value="product">Product</option>
-            <option value="member_tier">Member Tier</option>
-            <option value="binding">Binding</option>
-            <option value="nps">NPS</option>
-          </select>
         </div>
         <div class="knowledge-card" aria-live="polite">
           <strong id="knowledgeLabel">Customer Type 知识包</strong>
@@ -441,7 +437,7 @@
       <header class="topbar">
         <button class="mobile-menu" id="mobileMenuBtn" type="button" aria-label="打开导航侧栏" aria-controls="sidebar" aria-expanded="false">☰</button>
         <div class="report-heading">
-          <h1 id="reportTitle">Customer Type · 指标问答</h1>
+          <h1 id="reportTitle">Customer Type</h1>
           <p><span class="top-status" id="topKnowledgeStatus">知识包已加载</span></p>
         </div>
       </header>
@@ -635,7 +631,6 @@
     const questionInput = document.getElementById('questionInput');
     const sendBtn = document.getElementById('sendBtn');
     const newChatBtn = document.getElementById('newChatBtn');
-    const reportSelector = document.getElementById('reportSelector');
     const reportTrigger = document.getElementById('reportTrigger');
     const reportMenu = document.getElementById('reportMenu');
 
@@ -659,13 +654,14 @@
 
     function syncReportControl() {
       const config = reportConfigs[appState.reportKey];
-      reportTrigger.textContent = config.name;
+      document.getElementById('reportTriggerValue').textContent = config.name;
       reportMenu.querySelectorAll('[data-report-option]').forEach((option) => {
         option.setAttribute('aria-selected', String(option.dataset.reportOption === appState.reportKey));
       });
     }
 
-    function closeReportMenu(restoreFocus = false) {
+    function closeReportMenu(options) {
+      const { restoreFocus = false } = options || {};
       reportMenu.hidden = true;
       reportTrigger.setAttribute('aria-expanded', 'false');
       if (restoreFocus) reportTrigger.focus();
@@ -682,16 +678,24 @@
       if (reportMenu.hidden) {
         openReportMenu();
       } else {
-        closeReportMenu(true);
+        closeReportMenu({ restoreFocus: true });
       }
     }
 
-    function selectReportOption(reportOption) {
-      const isMobile = window.matchMedia('(max-width: 767px)').matches;
-      reportSelector.value = reportOption.dataset.reportOption;
-      closeReportMenu();
-      handleReportChange({ target: reportSelector });
-      if (!isMobile) reportTrigger.focus();
+    function applyReportSelection(reportKey) {
+      if (!reportConfigs[reportKey]) return;
+      appState.reportKey = reportKey;
+      updateReportContext();
+      renderQuickQuestions();
+      closeReportMenu({ restoreFocus: true });
+      if (window.matchMedia('(max-width: 767px)').matches) closeSidebar();
+    }
+
+    function moveReportOptionFocus(direction) {
+      const options = Array.from(reportMenu.querySelectorAll('[data-report-option]'));
+      const currentIndex = Math.max(0, options.indexOf(document.activeElement));
+      const nextIndex = Math.max(0, Math.min(currentIndex + direction, options.length - 1));
+      options[nextIndex].focus();
     }
 
     function handleReportMenuKeydown(event) {
@@ -706,45 +710,43 @@
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
-        closeReportMenu(true);
+        closeReportMenu({ restoreFocus: true });
         return;
       }
 
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        selectReportOption(reportOption);
+        applyReportSelection(reportOption.dataset.reportOption);
         return;
       }
 
       const options = Array.from(reportMenu.querySelectorAll('[data-report-option]'));
-      const currentIndex = options.indexOf(reportOption);
-      let nextIndex = currentIndex;
-      if (event.key === 'ArrowDown') nextIndex = Math.min(currentIndex + 1, options.length - 1);
-      else if (event.key === 'ArrowUp') nextIndex = Math.max(currentIndex - 1, 0);
-      else if (event.key === 'Home') nextIndex = 0;
-      else if (event.key === 'End') nextIndex = options.length - 1;
-      else return;
-
-      event.preventDefault();
-      options[nextIndex].focus();
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveReportOptionFocus(event.key === 'ArrowDown' ? 1 : -1);
+      } else if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        options[event.key === 'Home' ? 0 : options.length - 1].focus();
+      }
     }
 
-    function handleReportChange(event) {
-      appState.reportKey = event.target.value;
+    function updateReportContext() {
       const config = reportConfigs[appState.reportKey];
       const isPending = config.status === 'pending';
       document.getElementById('knowledgeLabel').textContent = config.knowledgePackageName;
       const knowledgeStatus = document.getElementById('knowledgeStatus');
       knowledgeStatus.textContent = isPending ? '知识包待接入' : '已加载';
       knowledgeStatus.classList.toggle('pending', isPending);
-      document.getElementById('reportTitle').textContent = `${config.name} · 指标问答`;
+      document.getElementById('reportTitle').textContent = config.name;
       const topStatus = document.getElementById('topKnowledgeStatus');
       topStatus.textContent = isPending ? '知识包待接入' : '知识包已加载';
       topStatus.classList.toggle('pending', isPending);
       syncReportControl();
-      renderQuickQuestions();
       showToast(`已切换至 ${config.name}，历史回答保持原报表快照`);
-      if (window.matchMedia('(max-width: 767px)').matches) closeSidebar();
+    }
+
+    function handleReportChange(event) {
+      applyReportSelection(event.target.value);
     }
 
     function findCrossReportRoute(question, reportKey) {
@@ -849,7 +851,7 @@
           <section class="answer-section"><h3>计算口径</h3><div class="formula">${escapeHtml(response.formula)}</div></section>
           <section class="answer-section"><h3>说明</h3><ul class="rule-list">${response.rules.map((rule) => `<li>${escapeHtml(rule)}</li>`).join('')}</ul></section>
           <div class="scope-note">提问时所选报表：${escapeHtml(snapshot.name)}</div>
-          <button class="citation-toggle" type="button" aria-expanded="false" aria-controls="${citationId}">▸ 查看知识依据</button>
+          <button class="citation-toggle" type="button" aria-expanded="false" aria-controls="${citationId}">查看知识依据 <span class="citation-chevron" aria-hidden="true">⌄</span></button>
           <div class="citations" id="${citationId}" hidden><strong>${escapeHtml(citationLabel(response, snapshot))}</strong><small>${escapeHtml(response.version)} · 更新于 ${escapeHtml(response.updated)}</small><small>负责人：${escapeHtml(response.owner)}</small></div>
           ${renderSuggestions(response.suggestions)}
           ${renderFeedback()}`;
@@ -867,7 +869,6 @@
       citation.classList.toggle('open', willOpen);
       citation.hidden = !willOpen;
       button.setAttribute('aria-expanded', String(willOpen));
-      button.textContent = willOpen ? '▾ 收起知识依据' : '▸ 查看知识依据';
     }
 
     function submitFeedback(button, value) {
@@ -1046,7 +1047,6 @@
       syncSidebarOverlay();
     }
 
-    reportSelector.addEventListener('change', handleReportChange);
     reportTrigger.addEventListener('click', toggleReportMenu);
     reportMenu.addEventListener('keydown', handleReportMenuKeydown);
     document.getElementById('newChatBtn').addEventListener('click', startNewChat);
@@ -1070,7 +1070,7 @@
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
       if (!reportMenu.hidden) {
-        closeReportMenu(true);
+        closeReportMenu({ restoreFocus: true });
       } else if (appState.sidebarOpen) {
         closeSidebar();
       }
@@ -1079,7 +1079,7 @@
     document.addEventListener('click', (event) => {
       const reportOption = event.target.closest('[data-report-option]');
       if (reportOption) {
-        selectReportOption(reportOption);
+        applyReportSelection(reportOption.dataset.reportOption);
       } else if (!event.target.closest('.report-control')) {
         closeReportMenu();
       }
@@ -1095,8 +1095,7 @@
 
       const reportButton = event.target.closest('[data-report-target]');
       if (reportButton) {
-        reportSelector.value = reportButton.dataset.reportTarget;
-        handleReportChange({ target: reportSelector });
+        applyReportSelection(reportButton.dataset.reportTarget);
         showToast('已切换报表，可继续提问');
       }
     });

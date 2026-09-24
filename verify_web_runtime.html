@@ -128,6 +128,17 @@
       }
     });
 
+    test('custom report menu and context synchronization', async (win, doc) => {
+      assert(typeof win.applyReportSelection === 'function', 'unified report selection entry point is missing');
+      const trigger = doc.getElementById('reportTrigger');
+      trigger.click();
+      assert(trigger.getAttribute('aria-expanded') === 'true' && !doc.getElementById('reportMenu').hidden, 'menu did not open');
+      doc.querySelector('[data-report-option="product"]').click();
+      assert(doc.getElementById('reportTitle').textContent === 'Product', 'report title did not update');
+      assert(doc.getElementById('knowledgeLabel').textContent.includes('Product'), 'knowledge label did not update');
+      assert(doc.getElementById('reportMenu').hidden, 'menu did not close after selection');
+    });
+
     test('citation and feedback ARIA', async (win, doc) => {
       win.startNewChat();
       const snapshot = { key: 'customer_type', name: 'Customer Type', knowledgePackageName: 'Customer Type 知识包' };
@@ -137,6 +148,8 @@
       const toggles = [...doc.querySelectorAll('.citation-toggle')];
       const ids = toggles.map((button) => button.getAttribute('aria-controls'));
       assert(ids.every(Boolean) && new Set(ids).size === ids.length, 'citation ids are missing or duplicated');
+      assert(toggles.every((button) => button.querySelector('.citation-chevron')), 'citation toggle is missing its chevron');
+      assert(toggles.every((button) => doc.getElementById(button.getAttribute('aria-controls')).querySelector('strong').textContent.startsWith('Customer Type ·')), 'citation snapshot title drifted with the current report');
       const citation = doc.getElementById(ids[0]);
       assert(citation && citation.hidden, 'citation does not start collapsed');
       win.toggleCitation(toggles[0]);

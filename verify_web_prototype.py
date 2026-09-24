@@ -15,7 +15,8 @@ REQUIRED_IDS = (
     "appShell",
     "sidebar",
     "newChatBtn",
-    "reportSelector",
+    "reportTrigger",
+    "reportMenu",
     "knowledgeLabel",
     "conversation",
     "welcomeState",
@@ -44,7 +45,8 @@ REQUIRED_FUNCTIONS = (
     "closeSidebar",
     "syncSidebarOverlay",
     "openReportMenu",
-    "selectReportOption",
+    "closeReportMenu",
+    "applyReportSelection",
     "handleReportMenuKeydown",
     "handleViewportResize",
     "showToast",
@@ -137,7 +139,7 @@ def main() -> int:
     menu_keydown = function_body(source, "handleReportMenuKeydown")
     if not all(key in menu_keydown for key in ("ArrowDown", "ArrowUp", "Home", "End", "Enter", "' '", "Escape", "Tab")):
         return fail("custom report listbox must implement the complete keyboard model")
-    if "closeReportMenu(true)" not in menu_keydown:
+    if "closeReportMenu({ restoreFocus: true })" not in menu_keydown:
         return fail("Escape must close the report menu and restore trigger focus")
     tab_branch = re.search(r"event\.key\s*===\s*['\"]Tab['\"](?P<body>.*?)(?:return|\})", menu_keydown, re.DOTALL)
     if not tab_branch or "closeReportMenu()" not in tab_branch.group("body") or "preventDefault" in tab_branch.group("body"):
@@ -188,15 +190,16 @@ def main() -> int:
         re.DOTALL,
     )
     report_option_body = report_option_handler.group("body") if report_option_handler else ""
-    select_report_option = function_body(source, "selectReportOption")
+    apply_report_selection = function_body(source, "applyReportSelection")
     if (
-        "selectReportOption(reportOption)" not in report_option_body
-        or "reportSelector.value" not in select_report_option
-        or "closeReportMenu();" not in select_report_option
-        or "handleReportChange" not in select_report_option
-        or select_report_option.index("closeReportMenu();") > select_report_option.index("handleReportChange")
+        "applyReportSelection(reportOption.dataset.reportOption)" not in report_option_body
+        or "appState.reportKey = reportKey" not in apply_report_selection
+        or "updateReportContext()" not in apply_report_selection
+        or "renderQuickQuestions()" not in apply_report_selection
+        or "closeReportMenu({ restoreFocus: true })" not in apply_report_selection
+        or "reportSelector.value" in source
     ):
-        return fail("custom report selection must close its menu before mobile sidebar focus restoration")
+        return fail("custom report selection must use the unified report entry point")
 
     print("PASS: web prototype interaction contract exists")
     return 0

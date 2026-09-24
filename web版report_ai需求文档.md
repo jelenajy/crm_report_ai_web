@@ -106,7 +106,12 @@
 | --- | --- | --- |
 | `handleReportChange` | FR-RPT-01 | 用当前配置更新标题、知识状态和快捷问题，历史回答不改写。 |
 | `renderQuickQuestions` | FR-RPT-01 | 从当前报表的 questions 配置生成快捷问题。 |
-| `#reportSelector` | FR-RPT-01 | 承载五张报表的选择值。 |
+| `openReportMenu` | FR-RPT-01 | 打开定制报表列表并聚焦当前选项。 |
+| `closeReportMenu` | FR-RPT-01 | 关闭定制报表列表并按需恢复触发器焦点。 |
+| `applyReportSelection` | FR-RPT-01 | 统一应用菜单与跨报表推荐的报表切换。 |
+| `handleReportMenuKeydown` | FR-RPT-01 | 处理 listbox 的方向键、首尾、选择、关闭与 Tab 移动。 |
+| `#reportTrigger` | FR-RPT-01 | 显示当前报表并控制定制报表列表。 |
+| `#reportMenu` | FR-RPT-01 | 承载五张报表的 listbox 选项。 |
 | `#reportTitle` | FR-RPT-01 | 切换时显示当前报表标题。 |
 | `#knowledgeLabel` | FR-RPT-01 | 显示当前报表知识包名称。 |
 | `#knowledgeStatus` | FR-RPT-01 | 切换时显示 ready/pending 的知识状态。 |
