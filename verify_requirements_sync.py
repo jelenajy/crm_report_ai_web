@@ -64,7 +64,7 @@ REQUIREMENT_CONTRACTS = {
     "FR-SIM-01": {
         "functions": ("submitFeedback", "setConversationTitle", "createTicket"),
         "dom_ids": ("recentConversation",),
-        "behavior": "ticket, feedback, history, and navigation remain simulated",
+        "behavior": "ticket, feedback, and history are page-local and reset on refresh",
     },
     "FR-A11Y-01": {
         "functions": (
@@ -248,8 +248,8 @@ def check_source_contracts(index: str, script: str) -> str | None:
         "renderFeedback()",
     ):
         return "normal answers must render conclusion, formula, rules, snapshot, citation, follow-ups, and feedback"
-    if not contains_all(no_answer, "知识待补充", "已生成待补充问题记录", "问题编号 ${ticket}"):
-        return "knowledge-missing answers must render submission confirmation and ticket"
+    if not contains_all(no_answer, "知识待补充", "本页已标记待补充", "本页临时编号 ${ticket}", "刷新后重置"):
+        return "knowledge-missing answers must state the page-local temporary ticket boundary"
     if not contains_all(cross_report, "跨报表提示", "report-recommendation", "推荐报表：", "data-report-target"):
         return "cross-report answers must render a report recommendation card"
     if not contains_all(out_of_scope, "当前知识范围", "问题范围提示", "scope-guide", "可以这样问我"):
@@ -315,8 +315,8 @@ def check_source_contracts(index: str, script: str) -> str | None:
     feedback_markup = function_body(script, "renderFeedback")
     title = function_body(script, "setConversationTitle")
     ticket = function_body(script, "createTicket")
-    if not contains_all(feedback, "感谢反馈", "反馈已记录"):
-        return "feedback must confirm both available choices"
+    if not contains_all(feedback, "本页已标记为有帮助", "本页已标记为没帮助"):
+        return "feedback must confirm both choices without implying persistence"
     if not contains_all(feedback_markup, 'aria-pressed="false"', 'role="group"') or "setAttribute('aria-pressed'" not in feedback:
         return "feedback buttons must expose an exclusive aria-pressed state"
     if "当前会话 · 刷新后重置" not in title or "KQ-20260920-" not in ticket:
