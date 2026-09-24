@@ -15,6 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 INDEX = ROOT / "index.html"
+OUTPUT_INDEX = ROOT / "outputs/crm_report_ai_web/index.html"
 REQUIREMENTS = ROOT / "web版report_ai需求文档.md"
 README = ROOT / "README.md"
 RUNTIME_RUNNER = ROOT / "verify_web_runtime.html"
@@ -84,8 +85,8 @@ def contrast_ratio(first: str, second: str) -> float:
 
 
 def main() -> int:
-    files = (INDEX, REQUIREMENTS, README, RUNTIME_RUNNER, RUNTIME_DRIVER)
-    missing = [path.name for path in files if not path.exists()]
+    files = (INDEX, OUTPUT_INDEX, REQUIREMENTS, README, RUNTIME_RUNNER, RUNTIME_DRIVER)
+    missing = [str(path.relative_to(ROOT)) for path in files if not path.exists()]
     if missing:
         print("FAIL: missing regression inputs: " + ", ".join(missing))
         return 1
@@ -125,6 +126,17 @@ def main() -> int:
     check("outline: 0" not in textarea_rule, "textarea rule must not erase its visible focus")
 
     check("3.6s" in css_rule(index, ".north-star"), "north-star twinkle duration must be 3.6s")
+    check("border-radius: 50%" in css_rule(index, ".send-button") and "linear-gradient" in css_rule(index, ".send-button"), "send button must be circular with a warm gold gradient")
+    check("fill: #171714" in css_rule(index, ".star-core") and "stroke: var(--gold-strong)" in css_rule(index, ".star-core"), "north-star core must be dark with a fine gold stroke")
+    check(".star-rays" in index and "class=\"star-rays\"" in index, "north-star needs distinct short-lived glint rays")
+    twinkle = block_body(index, r"@keyframes\s+northStarTwinkle")
+    halo = block_body(index, r"@keyframes\s+starHalo")
+    check("84%" in twinkle and "92%" in twinkle and "84%" in halo and "92%" in halo, "north-star and halo must rest until near the end of each cycle")
+    check(all(token in index for token in ("Knowledge Governance", "Consumer Hive · CRM Analytics", "已审核指标知识体系")), "sidebar governance footer is incomplete")
+    check(OUTPUT_INDEX.read_bytes() == INDEX.read_bytes(), "user-accessible output index must match root index byte for byte")
+    check("outputs/crm_report_ai_web/index.html" in readme, "README must explain the synchronized output copy")
+    check("本页标记为待补充" in index and "本页临时编号" in index, "unanswered copy must state the page-local boundary")
+    check(not any(token in index for token in ("反馈给报表负责人", "反馈给负责人", "已生成待补充问题记录", "反馈已记录")), "visible copy must not imply external submission or persistent feedback")
     check("data-report-option" in index, "custom report options are missing")
     check("handleReportMenuKeydown" in index, "report menu keyboard support is missing")
     check(not any(token in index for token in VISIBLE_BANNED_COPY), "banned visible copy remains")

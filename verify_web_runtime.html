@@ -95,11 +95,25 @@
     });
 
     test('visible composer focus', async (win, doc) => {
+      win.startNewChat();
+      frame.style.width = '659px';
+      await delay(50);
+      win.syncSidebarAccessibility();
+      const welcomeCopy = doc.querySelector('.welcome-copy');
+      const copyStyle = win.getComputedStyle(welcomeCopy);
+      assert(welcomeCopy.getBoundingClientRect().height <= Number.parseFloat(copyStyle.lineHeight) + 1, 'welcome guidance wraps at the 659px design viewport');
+      assert(doc.documentElement.scrollWidth <= doc.documentElement.clientWidth, '659px layout overflows horizontally');
       const input = doc.getElementById('questionInput');
       input.focus();
       const style = win.getComputedStyle(doc.querySelector('.composer-box'));
       assert(input.matches(':focus-visible'), 'textarea is not in the focus-visible state');
       assert(style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) > 0, 'composer focus outline is not visible');
+      const send = win.getComputedStyle(doc.getElementById('sendBtn'));
+      assert(send.borderRadius === '50%' && send.backgroundImage.includes('linear-gradient'), 'send button lost its circular gold treatment');
+      assert(doc.querySelector('.sidebar-footer').textContent.includes('Consumer Hive · CRM Analytics'), 'governance footer is missing');
+      const core = win.getComputedStyle(doc.querySelector('.star-core'));
+      assert(core.fill === 'rgb(23, 23, 20)' && core.stroke !== 'none', 'north-star center is not dark with a gold outline');
+      frame.style.width = '390px';
     });
 
     test('fault recovery finally', async (win, doc) => {
@@ -218,9 +232,14 @@
       assert([...firstButtons, ...secondButtons].every((button) => button.getAttribute('aria-pressed') === 'false'), 'feedback did not start unpressed');
       win.submitFeedback(firstButtons[0], 'up');
       assert(firstButtons[0].getAttribute('aria-pressed') === 'true' && firstButtons[1].getAttribute('aria-pressed') === 'false', 'positive feedback state is not exclusive');
+      assert(doc.getElementById('toast').textContent.includes('本页已标记'), 'feedback toast implies persistent recording');
       win.submitFeedback(firstButtons[1], 'down');
       assert(firstButtons[0].getAttribute('aria-pressed') === 'false' && firstButtons[1].getAttribute('aria-pressed') === 'true', 'negative feedback state is not exclusive');
+      assert(doc.getElementById('toast').textContent.includes('本页已标记'), 'negative feedback toast implies persistent recording');
       assert(secondButtons.every((button) => button.getAttribute('aria-pressed') === 'false'), 'feedback selection leaked into another answer');
+      win.renderAnswer(win.pickResponse('这个报表的某个未收录指标怎么算？', 'customer_type'), snapshot);
+      const unanswered = doc.querySelector('.message.assistant:last-child');
+      assert(unanswered.textContent.includes('本页临时编号') && unanswered.textContent.includes('本页标记为待补充'), 'unanswered message implies a persistent external ticket');
     });
 
     test('overlay accessibility state', async (win, doc) => {
