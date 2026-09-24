@@ -461,7 +461,7 @@
         <div class="composer-inner">
           <div class="composer-box">
             <label class="sr-only" for="questionInput">输入指标问题</label>
-            <textarea id="questionInput" rows="1" maxlength="500" placeholder="询问指标定义、计算逻辑或数据口径…" aria-describedby="composerHint"></textarea>
+            <textarea id="questionInput" rows="1" maxlength="500" placeholder="输入与 Customer Type 相关的指标问题…" aria-describedby="composerHint"></textarea>
             <button class="send-button" id="sendBtn" type="button" aria-label="发送问题">↑</button>
           </div>
           <div class="composer-meta" id="composerHint">
@@ -738,6 +738,7 @@
       knowledgeStatus.textContent = isPending ? '知识包待接入' : '已加载';
       knowledgeStatus.classList.toggle('pending', isPending);
       document.getElementById('reportTitle').textContent = config.name;
+      document.getElementById('questionInput').placeholder = `输入与 ${config.name} 相关的指标问题…`;
       const topStatus = document.getElementById('topKnowledgeStatus');
       topStatus.textContent = isPending ? '知识包待接入' : '知识包已加载';
       topStatus.classList.toggle('pending', isPending);

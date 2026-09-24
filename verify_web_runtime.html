@@ -136,6 +136,7 @@
       doc.querySelector('[data-report-option="product"]').click();
       assert(doc.getElementById('reportTitle').textContent === 'Product', 'report title did not update');
       assert(doc.getElementById('knowledgeLabel').textContent.includes('Product'), 'knowledge label did not update');
+      assert(doc.getElementById('questionInput').placeholder.includes('Product'), 'input prompt did not update for Product');
       assert(doc.getElementById('reportMenu').hidden, 'menu did not close after selection');
     });
 
