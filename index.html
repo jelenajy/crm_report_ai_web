@@ -588,7 +588,7 @@
       },
       update: {
         status: 'ok',
-        conclusion: '当前演示口径显示数据更新至 2025-09，最近刷新日期为 2026-05-10。',
+        conclusion: '当前收录的口径记录标注数据月份为 2025-09、刷新日期为 2026-05-10；实际更新情况请以报表刷新信息为准。',
         formula: '页面展示值来自当前数据更新标记。',
         rules: ['当前更新时间为已审核的静态信息。', '正式数据应从企业数据目录或报表刷新元数据读取。'],
         citation: '客质月报发布说明', version: '版本 2025.09', updated: '2026-05-10', owner: 'BI 运营组',
@@ -853,7 +853,7 @@
           <section class="answer-section"><h3>说明</h3><ul class="rule-list">${response.rules.map((rule) => `<li>${escapeHtml(rule)}</li>`).join('')}</ul></section>
           <div class="scope-note">提问时所选报表：${escapeHtml(snapshot.name)}</div>
           <button class="citation-toggle" type="button" aria-expanded="false" aria-controls="${citationId}">查看知识依据 <span class="citation-chevron" aria-hidden="true">⌄</span></button>
-          <div class="citations" id="${citationId}" hidden><strong>${escapeHtml(citationLabel(response, snapshot))}</strong><small>${escapeHtml(response.version)} · 更新于 ${escapeHtml(response.updated)}</small><small>负责人：${escapeHtml(response.owner)}</small></div>
+          <div class="citations" id="${citationId}" hidden><small class="citation-package">知识包：${escapeHtml(snapshot.knowledgePackageName)}</small><strong>${escapeHtml(citationLabel(response, snapshot))}</strong><small>${escapeHtml(response.version)} · 更新于 ${escapeHtml(response.updated)}</small><small>负责人：${escapeHtml(response.owner)}</small></div>
           ${renderSuggestions(response.suggestions)}
           ${renderFeedback()}`;
       }

@@ -142,7 +142,7 @@
 
     test('citation and feedback ARIA', async (win, doc) => {
       win.startNewChat();
-      const snapshot = { key: 'customer_type', name: 'Customer Type', knowledgePackageName: 'Customer Type 知识包' };
+      const snapshot = { key: 'customer_type', name: 'Customer Type', knowledgePackageName: 'Customer Type 知识包 <em>快照</em>' };
       const response = win.pickResponse('购买频次是如何计算的？', 'customer_type');
       win.renderAnswer(response, snapshot);
       win.renderAnswer(response, snapshot);
@@ -155,6 +155,8 @@
       assert(citation && citation.hidden, 'citation does not start collapsed');
       win.toggleCitation(toggles[0]);
       assert(toggles[0].getAttribute('aria-expanded') === 'true' && !citation.hidden, 'citation open state is not synchronized');
+      assert(citation.querySelector('.citation-package')?.textContent === `知识包：${snapshot.knowledgePackageName}`, 'expanded citation did not retain the question-time knowledge package');
+      assert(!citation.querySelector('.citation-package em'), 'knowledge package text was not escaped');
       win.toggleCitation(toggles[0]);
       assert(toggles[0].getAttribute('aria-expanded') === 'false' && citation.hidden, 'citation close state is not synchronized');
 

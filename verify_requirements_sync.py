@@ -321,7 +321,7 @@ def check_source_contracts(index: str, script: str) -> str | None:
         return "feedback buttons must expose an exclusive aria-pressed state"
     if "当前会话 · 刷新后重置" not in title or "KQ-20260920-" not in ticket:
         return "history and ticket behavior must remain page-local"
-    if any(term in index for term in ("原型", "原型演示", "模拟效果", "模拟提交", "模拟导航")):
+    if any(term in index for term in ("原型", "演示", "模拟效果", "模拟提交", "模拟导航")):
         return "visible HTML must not contain prototype or simulation wording"
     if "applyReportSelection(reportButton.dataset.reportTarget)" not in script or "reportSelector.value" in script:
         return "cross-report recommendations must use the unified report switching entry point"
