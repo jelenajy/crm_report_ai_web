@@ -198,12 +198,19 @@
       assert(toggles.every((button) => doc.getElementById(button.getAttribute('aria-controls')).querySelector('strong').textContent.startsWith('Customer Type ·')), 'citation snapshot title drifted with the current report');
       const citation = doc.getElementById(ids[0]);
       assert(citation && citation.hidden, 'citation does not start collapsed');
-      win.toggleCitation(toggles[0]);
-      assert(toggles[0].getAttribute('aria-expanded') === 'true' && !citation.hidden, 'citation open state is not synchronized');
+      const chevron = toggles[0].querySelector('.citation-chevron');
+      const collapsedTransform = win.getComputedStyle(chevron).transform;
+      toggles[0].click();
+      await delay(200);
+      assert(toggles[0].getAttribute('aria-expanded') === 'true' && !citation.hidden && citation.classList.contains('open'), 'click did not open the citation and synchronize its ARIA state');
+      const expandedTransform = win.getComputedStyle(chevron).transform;
+      assert(expandedTransform !== collapsedTransform, 'citation chevron did not rotate on expansion');
       assert(citation.querySelector('.citation-package')?.textContent === `知识包：${snapshot.knowledgePackageName}`, 'expanded citation did not retain the question-time knowledge package');
       assert(!citation.querySelector('.citation-package em'), 'knowledge package text was not escaped');
-      win.toggleCitation(toggles[0]);
-      assert(toggles[0].getAttribute('aria-expanded') === 'false' && citation.hidden, 'citation close state is not synchronized');
+      toggles[0].click();
+      await delay(200);
+      assert(toggles[0].getAttribute('aria-expanded') === 'false' && citation.hidden && !citation.classList.contains('open'), 'click did not close the citation and synchronize its ARIA state');
+      assert(win.getComputedStyle(chevron).transform === collapsedTransform, 'citation chevron did not return to its collapsed state');
 
       const feedbackGroups = [...doc.querySelectorAll('.feedback')];
       const firstButtons = [...feedbackGroups[0].querySelectorAll('button')];
