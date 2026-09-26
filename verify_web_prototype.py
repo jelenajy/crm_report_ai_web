@@ -166,12 +166,12 @@ def main() -> int:
     ):
         return fail("Enter handling must protect active and legacy IME composition")
 
-    if ".composer-box:focus-within" not in source or re.search(
-        r"\.composer\s+textarea\s*\{[^}]*\boutline\s*:\s*0",
+    if ".composer-box:focus-within" in source or not re.search(
+        r"\.composer\s+textarea:focus-visible\s*\{[^}]*\boutline\s*:\s*none",
         source,
         re.DOTALL,
     ):
-        return fail("the primary composer must retain a visible keyboard focus treatment")
+        return fail("the composer must not add stacked focus borders or textarea outlines")
 
     if not all(token in source for token in (
         "catch (error)", "finally {", "renderError(error, snapshot)", "setInteractionBusy(false)",

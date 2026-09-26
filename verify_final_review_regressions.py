@@ -120,10 +120,9 @@ def main() -> int:
     check("event.isComposing" in keyboard_body, "Enter handler must ignore active IME composition")
     check("event.keyCode === 229" in keyboard_body, "Enter handler must include the legacy IME 229 guard")
 
-    focus_rule = css_rule(index, ".composer-box:focus-within")
-    textarea_rule = css_rule(index, ".composer textarea")
-    check("outline:" in focus_rule and "outline: 0" not in focus_rule, "composer needs a visible focus-within outline")
-    check("outline: 0" not in textarea_rule, "textarea rule must not erase its visible focus")
+    focus_rule = css_rule(index, ".composer textarea:focus-visible")
+    check(not css_rule(index, ".composer-box:focus-within"), "composer border must not change or gain an outline on focus")
+    check("outline: none" in focus_rule, "focused textarea must not add a second outline")
 
     check("3.6s" in css_rule(index, ".north-star"), "north-star twinkle duration must be 3.6s")
     check("border-radius: 50%" in css_rule(index, ".send-button") and "linear-gradient" in css_rule(index, ".send-button"), "send button must be circular with a warm gold gradient")
@@ -132,7 +131,8 @@ def main() -> int:
     twinkle = block_body(index, r"@keyframes\s+northStarTwinkle")
     halo = block_body(index, r"@keyframes\s+starHalo")
     check("84%" in twinkle and "92%" in twinkle and "84%" in halo and "92%" in halo, "north-star and halo must rest until near the end of each cycle")
-    check(all(token in index for token in ("Knowledge Governance", "Consumer Hive · CRM Analytics", "已审核指标知识体系")), "sidebar governance footer is incomplete")
+    check(all(token in index for token in ("KPI INTELLIGENCE", "Consumer Hive · CRM Analytics", "已审核指标知识体系")), "sidebar intelligence footer is incomplete")
+    check("请基于所选的报表类型进行对应报表相关指标的询问。" in index, "welcome guidance does not match the requested wording")
     check(OUTPUT_INDEX.read_bytes() == INDEX.read_bytes(), "user-accessible output index must match root index byte for byte")
     check("outputs/crm_report_ai_web/index.html" in readme, "README must explain the synchronized output copy")
     check("本页标记为待补充" in index and "本页临时编号" in index, "unanswered copy must state the page-local boundary")
@@ -205,7 +205,7 @@ def main() -> int:
     runtime_cases = (
         "configured cross-report questions",
         "IME composition Enter",
-        "visible composer focus",
+        "quiet composer focus",
         "fault recovery finally",
         "citation and feedback ARIA",
         "overlay accessibility state",

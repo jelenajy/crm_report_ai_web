@@ -24,6 +24,9 @@ PREMIUM_REQUIREMENT_TOKENS = (
     "applyReportSelection",
     "查看知识依据",
     "用户可见页面不得出现",
+    "请基于所选的报表类型进行对应报表相关指标的询问。",
+    "KPI INTELLIGENCE",
+    "输入框聚焦时保持边框颜色不变",
 )
 
 REQUIREMENT_CONTRACTS = {

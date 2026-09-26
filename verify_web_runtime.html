@@ -94,23 +94,29 @@
       assert(!doc.getElementById('sendBtn').disabled, 'plain Enter response did not finish');
     });
 
-    test('visible composer focus', async (win, doc) => {
+    test('quiet composer focus', async (win, doc) => {
       win.startNewChat();
       frame.style.width = '659px';
       await delay(50);
       win.syncSidebarAccessibility();
       const welcomeCopy = doc.querySelector('.welcome-copy');
       const copyStyle = win.getComputedStyle(welcomeCopy);
+      assert(welcomeCopy.textContent.trim() === '请基于所选的报表类型进行对应报表相关指标的询问。', 'welcome guidance did not adopt the requested wording');
       assert(welcomeCopy.getBoundingClientRect().height <= Number.parseFloat(copyStyle.lineHeight) + 1, 'welcome guidance wraps at the 659px design viewport');
       assert(doc.documentElement.scrollWidth <= doc.documentElement.clientWidth, '659px layout overflows horizontally');
       const input = doc.getElementById('questionInput');
+      doc.getElementById('mobileMenuBtn').focus();
+      const idleBorder = win.getComputedStyle(doc.querySelector('.composer-box')).borderColor;
       input.focus();
       const style = win.getComputedStyle(doc.querySelector('.composer-box'));
-      assert(input.matches(':focus-visible'), 'textarea is not in the focus-visible state');
-      assert(style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) > 0, 'composer focus outline is not visible');
+      const inputStyle = win.getComputedStyle(input);
+      assert(doc.activeElement === input, 'input did not receive focus');
+      assert(style.borderColor === idleBorder, 'composer border changes color on focus');
+      assert(style.outlineStyle === 'none' && inputStyle.outlineStyle === 'none', 'composer shows stacked focus outlines');
       const send = win.getComputedStyle(doc.getElementById('sendBtn'));
       assert(send.borderRadius === '50%' && send.backgroundImage.includes('linear-gradient'), 'send button lost its circular gold treatment');
-      assert(doc.querySelector('.sidebar-footer').textContent.includes('Consumer Hive · CRM Analytics'), 'governance footer is missing');
+      assert(doc.querySelector('.sidebar-footer strong').textContent.trim() === 'KPI INTELLIGENCE', 'sidebar footer label is not KPI INTELLIGENCE');
+      assert(doc.querySelector('.sidebar-footer').textContent.includes('Consumer Hive · CRM Analytics'), 'governance footer identity is missing');
       const core = win.getComputedStyle(doc.querySelector('.star-core'));
       assert(core.fill === 'rgb(23, 23, 20)' && core.stroke !== 'none', 'north-star center is not dark with a gold outline');
       frame.style.width = '390px';

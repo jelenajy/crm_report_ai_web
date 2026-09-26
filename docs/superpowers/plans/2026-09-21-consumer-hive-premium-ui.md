@@ -95,7 +95,7 @@ Expected: FAIL，分别提示缺少 Consumer Hive 高级品牌结构、八角北
 ```html
 <div class="welcome-kicker">CONSUMER HIVE INTELLIGENCE</div>
 <h1>让每个指标，<span>都有据可循。</span></h1>
-<p class="welcome-copy">请围绕所选报表询问指标逻辑；若有效问题尚未收录，我将反馈给报表负责人。</p>
+<p class="welcome-copy">请基于所选的报表类型进行对应报表相关指标的询问。</p>
 ```
 
 CSS 必须包含：
@@ -395,4 +395,3 @@ git status --short --branch
 ```
 
 Expected: push 成功；HEAD 与 `origin/main` 相同；工作树 clean。
-
