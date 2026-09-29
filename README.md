@@ -1,49 +1,45 @@
 # Consumer Hive · C Hive Sage｜指标顾问
 
-Consumer Hive 是报表系统全称；C Hive Sage｜指标顾问是其独立的指标知识问答工作台。V1.1 Web 页面采用深石墨侧栏、暖象牙内容区和香槟金交互元素，以原生 HTML、CSS 和 JavaScript 提供五报表切换、页面内知识回答、可展开知识依据、推荐追问及反馈交互。
+KPI 问答页面沿用现有五报表设计。服务端依据 `报表类型_知识包名称mapping.xlsx` 读取当前报表的全部专属知识包；未命中可回答口径时再查通用包。报表相关的 KPI 清单和数量问题也可按已接入的专属包回答。当前版本不接外部模型。
 
-当前实现的知识内容来自 `index.html` 内的静态配置。Customer Type 可展示已有口径；Product、Member Tier、Binding、NPS 的知识包待接入，暂不提供确定性业务答案。报表选择器采用定制圆角 listbox，鼠标与键盘均可操作；跨报表推荐卡使用相同的切换入口，历史回答保留提问时的报表快照。
+对于知识包中有明确比率口径的问题，服务还会解释两个指标的关系、口径差异以及比率变化可能对应的分子/分母变化；实际下降原因和具体数值仍需报表数据，系统会明确说明无法确认。
 
 ## 本地运行
 
-在仓库根目录执行以下命令。它会创建只含公开入口的临时目录，并仅监听本机回环地址；不要直接把仓库根目录作为服务目录，否则 `.git`、审查材料和开发文件可能被访问。
+本分支自带 mapping、专属和通用 Excel，默认从仓库根目录读取。正式部署时应将知识包移出 Web 仓库，并用 `KNOWLEDGE_DIR` 指向仅服务端可读的私有目录。在本目录执行：
 
 ```bash
-PUBLIC_DIR="$(mktemp -d)"
-cp index.html "$PUBLIC_DIR/"
-python3 -m http.server 8765 --bind 127.0.0.1 --directory "$PUBLIC_DIR"
+python3 server.py --host 127.0.0.1 --port 8765
 ```
 
-然后访问 <http://127.0.0.1:8765/>。结束服务后可执行 `rm -r -- "$PUBLIC_DIR"` 删除临时目录。
+打开 <http://127.0.0.1:8765/>。不要用 `python3 -m http.server` 直接发布仓库目录；该命令会把私有知识包和仓库文件一起暴露出去。
+也不要直接双击 `index.html` 以 `file://` 打开：问答需要同一服务提供的 `/api/answer`，文件页面无法调用它。
 
-## 文件
+## 维护知识包
 
-- `index.html`：Consumer Hive Web 入口、定制报表菜单、知识依据交互与页面内静态知识配置。
-- `outputs/crm_report_ai_web/index.html`：与根目录 `index.html` 字节一致的用户取用副本；更改页面后同步复制，回归校验会检查一致性。
-- `web版report_ai需求文档.md`：需求、验收标准和 HTML 行为映射。
-- `verify_web_prototype.py`：页面入口、DOM 与核心交互契约校验。
-- `verify_requirements_sync.py`：结构化需求、映射表和实现证据的一致性校验。
-- `verify_final_review_regressions.py`：最终审查修复项的静态与发布边界回归校验。
-- `verify_web_runtime.html`：同源 iframe 浏览器行为回归页。
-- `verify_web_runtime.py`：使用系统 Chrome/Chromium 运行浏览器回归，并验证临时服务不会暴露仓库文件。
-- `CHANGELOG.md`：版本变更记录。
-- `docs/2026-09-20-c-hive-sage-web-design.md`：Web 版设计说明；详细 V1.1 规格见 `docs/superpowers/specs/2026-09-21-consumer-hive-premium-ui-design.md`。
+- 通用包：`$KNOWLEDGE_DIR/Diamond KPI Definition V2024.xlsx`，读取首个工作表的 A/B 列指标名、D 列周期和 E 列定义。
+- Mapping：`$KNOWLEDGE_DIR/报表类型_知识包名称mapping.xlsx`，首个工作表 A 列为报表类型、B 列为专属知识包文件名。同一报表可以占多行，重复文件名去重。
+- 别名：`$KNOWLEDGE_DIR/指标别名mapping.csv`，UTF-8，列为 `报表类型,别名,标准指标`。填 `general` 表示通用说法，也可填具体报表类型；同一别名的报表专属映射优先。新增指标的不同叫法直接增加数据行，无须改代码。例如“新客第二次购买”映射到“新客二回”。
+- 专属包支持两种首表结构：C 列 `字段展示名`、G 列 `计算逻辑`、H 列 `业务含义说明`（当前完整版会在服务端读取并保留 A–K 全部列），或 A 列 `KPI_CN`、E 列 `Definition`。回答结合已验证的计算、业务含义和适用周期规则，不向页面返回原始工作簿列、SQL 或 DAX。包文件只允许放在知识目录根部，不接受路径或符号链接。
+- 添加专属包：把文件放入私有知识目录，在 mapping 中新增一行；同一报表可映射多个文件。修改工作簿或 mapping 后，下次 API 请求会重新读取，无须重启服务。新增页面尚未列出的报表类型还需扩展前端选项和服务端 `REPORT_KEYS`。
+- 映射文件不存在、专属包全部缺失时显示“知识包未接入”；部分映射包缺失时显示“部分知识包未接入”；全部加载时显示“已接入”。通用包回答不会改变报表级接入状态，而是在回答中提示当前指标的专属知识未覆盖。
+- 对问答可直接采用的业务说明，优先维护专属表 H 列。复杂 DAX 不会直接发送到浏览器；无法准确转成业务语言时系统会尝试通用包，仍无依据则明确提示无法回答。
+- 检索顺序为：当前报表范围内按标准指标名/别名、相似名称与可解释口径匹配，未取得可靠回答再查通用包。短指标名不会因为只出现在更长问法中就自动命中；“哪个指标对应这个公式”会优先反查完整口径。未配置过、且文本相似度不足的语义改写仍可能无法识别，此时需要维护别名或更完整的说明，不会猜测。
+- KPI 数量问题只统计当前报表已接入专属包中的去重名称；部分包缺失时不提供完整数量。
 
-## 当前技术边界
-
-当前版本不包含嵌入式报表、筛选自动同步、企业登录、真实 AI 模型、向量检索、数据库、真实工单、反馈落库或历史会话持久化。`createTicket` 生成的是本页临时编号；问题标记、反馈选择和最近会话标题只存在于当前页面，刷新后不保留，也不会自动发送给报表负责人。页面中的知识回答来自静态配置，不代表实时查询。投入正式使用前需要接入受控的知识、记录和反馈服务，并完善权限与审计。页面不依赖外部前端库、字体、图片或网络资源。
-
-原 Power BI 浮窗版本继续维护在 `jelenajy/crm_report_ai`；本仓库仅维护独立 Web 版交付物。
+服务只公开 `/`、`/api/reports` 和 `/api/answer`。浏览器不接收工作簿、文件名、原始 DAX 或引用文档元数据。当前 GitHub 分支包含原始 Excel，拥有仓库访问权限的人仍可读取；当前服务也没有企业身份认证，无法彻底阻止用户通过反复提问收集回答。正式部署需要把文件移到私有存储，并接入现有登录、权限和访问审计。
 
 ## 验证
 
-在仓库根目录运行：
+代码与状态、检索、回答契约见 [知识系统设计文档](docs/knowledge-system-design.md)。每次修改代码须同步更新该文档并运行设计同步校验。
 
 ```bash
+python3 -m unittest discover -s tests -v
 python3 verify_web_prototype.py
 python3 verify_requirements_sync.py
 python3 verify_final_review_regressions.py
 python3 verify_web_runtime.py
+python3 verify_design_sync.py
 ```
 
-最后一项会自动查找 Chrome/Chromium，也可通过 `CHROME_BIN` 指定浏览器可执行文件。它只在 `127.0.0.1` 的随机端口启动临时服务，公开目录仅包含 `index.html` 和浏览器回归页；测试结束后目录与服务会自动清理。
+`index.html` 与 `outputs/crm_report_ai_web/index.html` 保持一致。最后一项需要本机 Chrome/Chromium 和回环端口权限。
